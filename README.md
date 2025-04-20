@@ -1,93 +1,156 @@
 # ERSS-project-jh730-xs90
 
+# Get started
 
+The last assignment -- our project -- is now posted! This will be your chance to put the things you've learned about designing robust server software to use all in one project.
 
-## Getting started
+- First, take a look through the assignment spec (on Canvas).
+- For the project you have one near-term portion to complete. Some groups will be implementing the "Amazon" part and some will be implementing the "UPS" part. And your groups are part of a larger Interoperability Group (IG). Within the IG, each Amazon and each UPS should be fully compatible (i.e. be able to work with each other). To accomplish this, you'll need to define the protocol that your IG will use. A write-up of that will be due by **Thursday, April 10**. You can email that to your instructor and your IG’s assigned TA as a PDF, and each IG only needs to send one copy (the writeup must be agreed upon by each of the 4 pairs in the IG). You'll also notice a TA listed with each IG. That is the TA who will help you review your protocol spec, provide helpful feedback, and coordinate a demo of your projects running together at the end of the semester.
+- After IG formation, you will see your project (UPS or Amazon) and IG [at this link](https://docs.google.com/spreadsheets/d/1Y3v8YGJDXmZd60n2D3f_6Y6c46NFHi15wWa4VMkT1iM/edit?usp=sharing)
+- The .proto files that are mentioned are posted along with the assignment spec (on Canvas).
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+I hope the project is enjoyable -- you've learned and practiced all the things at this point that you'll need for the project. I hope it also gives you an outlet (via the inter-operability groups) to have more chances to talk with your classmates in this unusual time. I encourage you to get together in person or on Zoom to chat and discuss often.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## World Sim docker deployment
 
-## Add your files
+The world simulator for final project is available under the following github repo:
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+https://github.com/yunjingliu96/world_simulator_exec
 
-```
-cd existing_repo
-git remote add origin https://gitlab.oit.duke.edu/jh730/erss-project-jh730-xs90.git
-git branch -M main
-git push -uf origin main
-```
+Please read the README.md about how to work with it.
 
-## Integrate with your tools
+**Important Note**: For more reliable worldsim container operation, make the following edit to docker-compose.yml: 
+* Change "image: postgres" to "image: postgres:12-alpine3.15"
 
-- [ ] [Set up project integrations](https://gitlab.oit.duke.edu/jh730/erss-project-jh730-xs90/-/settings/integrations)
+Still, there are several things you need to look out:
 
-## Collaborate with your team
+1. A note on "flakiness" in README.md -- You can think of "flakiness" as the "stupid degree" of the world. The higher the flakiness is, the more stupid the world is. The world express its stupidness by deliberately dropping (ignoring) requests it receives. And that's also why we need you to enforce the seqnum-ack mechanism in each request. Without the flakiness, ack seems useless, but with flakiness, ack is a guarantee.
+2. You can set the flakiness to be 0 first and then set it with another value after you implement ack.
+3. Time in the world simulator goes like in real life, not in speed, but in the fact that time won't stop even if connection is closed. So if you send command to deliver a package, close connection and make a query on same package, you should expect the package's status changes if you connect again 2 hours later.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+# Tips and FAQs
 
-## Test and Deploy
+## 1 Project Advice (high level thoughts)
 
-Use the built-in continuous integration in GitLab.
+Implementing everything on your side (amazon or ups) and then linking up to test with other groups is NOT the best way to go about it.  It can make testing at the end pretty painful.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+The best way to go about it will be to get a feature working, then test with others in your IG (and you can start small with this).  Then add the next feature, and test again.  Keep repeating this process to build up.  This strategy will help with your code development, organization, and debugging.  And you'll have confidence that existing feature are working and solid as you continue adding new functions to the code.
 
-***
+I hope this helps, and I'd strongly encourage this way of going about it.
 
-# Editing this README
+## 2 Google protocol buffer
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### 2.1 API
 
-## Suggestions for a good README
+FYI, all of the API details for google protocol buffers can be found here:
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+https://developers.google.com/protocol-buffers/docs/reference/overview
 
-## Name
-Choose a self-explaining name for your project.
+There are sub-sections for each different programming language.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### 2.2 (Python) Sending and Receiving protobuf mesages
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+If you're having trouble interacting with the world using Python...
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+The solution should be similar in the case when you recv/send msg using sockets in hw2/hw4. But the tricky part is how to get the length of message. Only when you have the correct length can you receive/send a whole photobuf message. And only when you have the correct whole photobuf message can you parse it.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Python really lacks useful references on how to solve this. There are some workaround solutions discussed on this [page](https://groups.google.com/forum/#!topic/protobuf/4RydUI1HkSM). In short, a varint32 is encoded before writing the message itself in a photobuf message.  One solution is the following.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+1. Import these encoding/decoding packages:
+    
+    ```python
+    from google.protobuf.internal.decoder import _DecodeVarint32
+    from google.protobuf.internal.encoder import _EncodeVarint
+    ```
+    
+2. Sending a message is straightforward, just use socket to send it. But right before you send it, encode the length info:
+    
+    ```python
+    _EncodeVarint(WORLD_SOCKET.send, len(ENCODED_MESSAGE), None)
+    ```
+    
+3. Receiving is trickier, you need to extract the length first. My dummy but workable solution is to use a while loop to get the length until I know I'm at the beginning of the real message.
+    
+    ```python
+    var_int_buff = []
+    while True:
+        buf = world_socket.recv(1)
+        var_int_buff += buf
+        msg_len, new_pos = _DecodeVarint32(var_int_buff, 0)
+        if new_pos != 0:
+            break
+    whole_message = world_socket.recv(msg_len)
+    ```
+    
+4. You can wrap the recv/send part to a standalone function that returns a whole Protobuf object. Just to improve the abstraction and reduce code duplication.
+5. As we know the communication between you and the world is asynchronous(it should also be async between amazon and ups), you should open a socket and then while_loop listen to this socket. TIP3 is very helpful here(Waiting for a response, parse and check what this response is).
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## 3 FAQs
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### **Can I combine front-end and back-end?**
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- Technically, yes. You can use socket in Django which means there're multiple ways to implement it based on your design. I think you can do it in this way from a syntax perspective but probably **not easy because everything is mixed together**.
+- The way I did before is to use a single Python file for the backend server and Django for the frontend. And based on whatever you need these servers will send information between each other and to the UPS and world.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### **Can I separate front-end and back-end?**
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Yes, having a split front-end and back-end that communicate via another socket is a reasonable way to approach it.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### **How to handle potentially the database between the front-end and back-end?**
 
-## License
-For open source projects, say how it is licensed.
+- How to maintain model/date consistence between front end and backend depends on your design
+- On one hand, you can set up database at backend (as you're describing through another app possibly in C++).  Then whenever the frontend (Django) want anything, it sends a query (possibly as a request through a tcp socket) to the backend so that the backend can do the query and send results back. In this way, only one side needs to manage the database.
+- On the other hand, you can allow access to a single database both from backend and frontend. You only have to set up tables for once. As for something similar to ORM, if you are using C++, you can check out libpqxx. In this way, both the frontend and backend has the responsibility to maintain the database.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+### **Which side will create package id - Amazon or UPS? What is the difference between the package id and shipment id?**
+
+- shipid in APack is just packageid in AQuery. They are just names for identifier for a unique package.
+- Shipid is created by Amazon side. World receives the shipid that amazon wants it to create and tries to create a new package for amazon with the specified id. Since the world should also be robust, if world receives any illegal id number, for example, the shipid already exists, it will send back with A/UErr with a descriptive string that you can read to debug.
+- Shipid and packageid are the same, but not necessarily the same with tracking number on UPS side, depending on your design. It's amazon's responsibility to create it and communicate it with both world and UPS.
+
+### **Seq num and ACK implementation: When we want to acknowledge a certain message with a sequence number like 101, we send back the same number 101 as ACK?**
+
+- Let's say amazon send an ACommands with only one APurchaseMore request, and the seqnum contained in APurchaseMore request is 13 (this seqnum is the unique identifier of requests sent from amazon side, so amazon should keep incrementing it. it may start from 0). Once world receive ACommands and handle the APurchaseMore request, it will first send an ack = 13 notifying amazon that the world has received your request No.13. Then whenever APurchaseMore actions is done, it will send amazon one APurchaseMore response corresponding to the one amazon sent, but inside this APurchaseMore response, the seqnum is the unique identifier of world responses, in this case, maybe 50 (world keeps track of its own message sent sequence number).
+- World has its own mechanism of gathering responses and send them back together, so these 2 responses may be sent together or separately.
+
+### **Is there a limit to how many packages one truck can carry?**
+
+You can assume a truck can handle any load assigned to it. These are very flexible, magic trucks. :)
+
+### **(Python) Database and multithreading: cursor is not thread-safe. How to avoid race conditions?**
+
+- I think this has some good info on cursors, related to your questions:
+    
+    https://www.psycopg.org/docs/usage.html#thread-safety
+    
+- Connection objects are thread safe, so you can share one connection across multiple threads.  But, cursors themselves are not thread safe. So you would need at least a separate cursor object for each thread.
+
+### **Do we need shopping cart feature?**
+
+- You don't necessarily need to have a feature equivalent to a shopping cart, since that's not covered by the "bare minimum" or "actually useful" categories.
+- A shopping cart would be a nice "produce differentiation" feature.  But there are almost endless other feature ideas you can probably come up with as well.  So with enough other interesting produce differentiation features, you can still have a very good project.
+
+# Submission Details
+
+For the final Project, the submission is fairly similar to previous homework.
+
+But the grading for the project will primarily be driven by a demo session where each IG will meet with a TA to demo their Amazon / UPS pairs working together, show off your functionality, features, etc. Details on setting up your IG demo will be provided shortly.
+
+### **To submit the project:**
+
+1. Use gitlab to submit your code, and the name should be ERSS-project-<netid1>-<netid2>. Don't forget to add instructor & TAs as reporters.
+
+2. In the top level of your repo, include your danger log.
+
+3. In the top level of your repo, include a text or PDF file named "differentiation.txt" or "differentiation.pdf" that should list the differentiating features (as described in the project spec) of your mini UPS or Amazon.
+
+4. Use Sakai to submit your gitlab link (just one person in each project pair needs to do so).
+
+5. Email your final protocol spec to your section’s instructor (just 1 IG member needs to send it).
+
+### **To schedule a demo:**
+
+- A list of times each TA is available for project demo will be posted close to project submission time. 
+Your IG will need to sign up for one of these slots with your TA.
+- Each IG will demo to their assigned TA. **All IG members must be present at the demo.**
+- Once TAs post their available timeslots (this will be announced on the message board), then communicate with your IG to agree on a timeslot when you can all do the demo.  Then email the instructor with your chosen slot.
