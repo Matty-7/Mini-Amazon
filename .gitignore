@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+
+# Protobuf compile result
+amazon_app/proto_generated/
+
+# Database & log
+*.sqlite3
+instance/
+logs/
+
+# Docker
+*.log
