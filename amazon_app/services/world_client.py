@@ -38,7 +38,7 @@ class ReliableChannel(Generic[T]):
     ▸ Dispatches all inbound msgs onto a thread‑safe Queue
     """
 
-    RETRY_INTERVAL_S: float = 0.5  # 初始重传间隔
+    RETRY_INTERVAL_S: float = 0.5  # Initial retransmission interval
     MAX_RETRIES: int = 5
 
     def __init__(self, host: str, port: int):

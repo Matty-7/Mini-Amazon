@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package amazon_ups;
+
+import "common.proto";
+
+// Amazon → UPS Messages
+
+// Triggered when a user confirms a purchase
+message RequestPickup {
+  string ups_user_id = 1;
+  repeated ItemInfo items = 2;
+  int32 warehouse_id = 3;
+  Coordinate user_destination = 4;
+}
+
+// Sent when a user changes the delivery address
+message Redirect {
+  int64 package_id = 1;
+  Coordinate new_destination = 2;
+}
+
+// Used to cancel an order
+message Cancel {
+  int64 package_id = 1;
+}
+
+// Sent when a package has been loaded onto a truck
+message LoadReady {
+  int64 package_id = 1;
+  int32 truck_id = 2;
+}
+
+// Confirm receiving the returned package
+message ReturnAck {
+  int64 package_id = 1;
+}
+
+// UPS → Amazon Messages
+
+// Confirms truck assignment
+message PickupAck {
+  int64 package_id = 1;
+  int32 truck_id = 2;
+}
+
+// Confirms redirect success
+message RedirectAck {
+  int64 package_id = 1;
+  bool success = 2;
+}
+
+// Confirms cancellation
+message CancelAck {
+  int64 package_id = 1;
+  bool success = 2;
+}
+
+// The truck has arrived at the warehouse
+message TruckArrived {
+  int64 package_id = 1;
+  int32 truck_id = 2;
+  int32 warehouse_id = 3;
+}
+
+// Indicates that delivery is in progress
+message DeliveryStarted {
+  int64 package_id = 1;
+  int32 truck_id = 2;
+}
+
+// Indicates delivery failure
+message DeliveryFailed {
+  int64 package_id = 1;
+  string reason = 2;
+}
+
+// Indicates the package is returned to the warehouse
+message Returned {
+  int64 package_id = 1;
+  int32 warehouse_id = 3;
+}
+
+// Indicates successful return delivery
+message ReturnDelivered {
+  int64 package_id = 1;
+  Coordinate destination = 2;
+}
+
+// Envelope Messages
+message AmazonToUPS {
+  int64 seqnum = 123; 
+  optional int64 acknum = 124;
+  oneof msg_type {
+    RequestPickup request_pickup = 1;
+    Redirect redirect = 2;
+    Cancel cancel = 3;
+    LoadReady load_ready = 4;
+    Ack pure_ack = 5; 
+    ReturnAck return_ack = 6;
+  }
+}
+
+message UPSToAmazon {
+  int64 seqnum = 123;
+  optional int64 acknum = 124;
+  oneof msg_type {
+    PickupAck pickup_ack = 1;
+    RedirectAck redirect_ack = 2;
+    CancelAck cancel_ack = 3;
+    TruckArrived truck_arrived = 4;
+    DeliveryStarted delivery_started = 5;
+    DeliveryFailed delivery_failed = 6;
+    Returned returned_msg = 7;
+    ReturnDelivered return_delivered = 8;
+    Ack pure_ack = 9; 
+  }
+}
