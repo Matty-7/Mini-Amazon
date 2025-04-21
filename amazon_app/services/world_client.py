@@ -1,7 +1,7 @@
 # world_client.py
 
-from amazon_app.services.socket_handler import ReliableChannel
-from test_connection import world_amazon_1_pb2 as world_pb
+from utils.reliable_channel import ReliableChannel
+from protocols import world_amazon_1_pb2 as world_pb
 
 class WorldClient:
     def __init__(self, host: str, port: int):
