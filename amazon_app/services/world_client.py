@@ -1,55 +1,141 @@
-# world_client.py
+"""Typed *WorldClient* helper wrapping ReliableChannel for Mini‑Amazon.
 
-from utils.reliable_channel import ReliableChannel
-from protocols import world_amazon_1_pb2 as world_pb
+It speaks the protobuf schema you pasted (proto2) and exposes the four high‑
+level operations: **buy / pack / load / query**.  Sequence numbers and ACK
+book‑keeping now exactly match the World Simulator’s expectations.
+"""
 
-class WorldClient:
+from __future__ import annotations
+
+import logging
+import threading
+from typing import List
+
+import amazon_app.protocols.world_amazon_1_pb2 as wam
+from amazon_app.utils.reliable_channel import ChannelClosed, ReliableChannel
+
+logger = logging.getLogger(__name__)
+
+
+class WorldClient:  # ---------------------------------------------------------
+    """High‑level façade – one instance per TCP connection."""
+
     def __init__(self, host: str, port: int):
-        self.channel = ReliableChannel[world_pb.AResponses](host, port)
-        self.pending_acks = set()
+        self._chan: ReliableChannel[wam.AResponses] = ReliableChannel(host, port)
+        self._seq = 0
+        self._lock = threading.Lock()
+        self._running = False  # flipped to *True* only after handshake
 
-    def connect_to_world(self, warehouse_list):
-        # 构造 AConnect 消息
-        connect_msg = world_pb.AConnect()
-        connect_msg.isAmazon = True
-        for wh in warehouse_list:
-            init = connect_msg.initwh.add()
-            init.id = wh["id"]
-            init.x = wh["x"]
-            init.y = wh["y"]
+    # ───────────────────────────────── handshake ────────────────────────────
+    def connect(self, warehouses: List[wam.AInitWarehouse], *, timeout: int = 30) -> int:
+        """Send *AConnect* and return the worldid on success."""
+        logger.info("Connecting to world %s:%d …", *self._chan.remote)
 
-        # 直接发送 connect_msg 而非 ACommands
-        self.channel._sock.sendall(
-            self.channel._frame(connect_msg.SerializeToString())
-        )
+        conn = wam.AConnect(isAmazon=True)
+        conn.initwh.extend(warehouses)
+        self._chan.send(conn)
 
-        # 接收 AConnected 响应（不带 framing 封装）
-        data = self.channel.recv()
-        conn_resp = world_pb.AConnected()
-        conn_resp.ParseFromString(data)
-        print(f"Connected to world {conn_resp.worldid}, status={conn_resp.result}")
-        return conn_resp.worldid
+        raw = self._chan.recv(timeout)
+        if raw is None:
+            raise RuntimeError(f"World simulator did not reply within {timeout}s")
 
-    def send_command(self, cmd: world_pb.ACommands) -> int:
-        # 添加 ack 列表
-        cmd.acks.extend(self.pending_acks)
-        self.pending_acks.clear()
-        return self.channel.send(cmd)
+        ack = wam.AConnected()
+        ack.ParseFromString(raw)
+        if ack.result != "connected!":
+            raise RuntimeError(f"Handshake rejected: {ack.result}")
+        logger.info("Handshake OK, worldid=%d", ack.worldid)
 
-    def receive_response(self, timeout=1.0) -> world_pb.AResponses:
-        data = self.channel.recv(timeout)
-        if not data:
-            return None
-        response = world_pb.AResponses()
-        response.ParseFromString(data)
+        self._running = True
+        threading.Thread(target=self._recv_loop, daemon=True).start()
+        return ack.worldid
 
-        # 把 ack 记下以便之后发送
-        for ack in response.acks:
-            self.channel.mark_acked(ack)
-        return response
+    # ───────────────────────────────── public helpers ───────────────────────
+    def buy(self, wh: int, prods: List[wam.AProduct]):
+        self._enqueue_buy(wh, prods)
 
-    def mark_for_ack(self, seqnum: int):
-        self.pending_acks.add(seqnum)
+    def pack(self, wh: int, prods: List[wam.AProduct], shipid: int):
+        self._enqueue_pack(wh, prods, shipid)
 
-    def close(self):
-        self.channel.close()
+    def load(self, wh: int, truckid: int, shipid: int):
+        self._enqueue_load(wh, truckid, shipid)
+
+    def query(self, packageid: int):
+        self._enqueue_query(packageid)
+
+    # ───────────────────────────── internal builders ────────────────────────
+    def _next_seq(self) -> int:
+        with self._lock:
+            self._seq += 1
+            return self._seq
+
+    def _dispatch(self, cmd: wam.ACommands):
+        cmd.acks.extend(self._chan.pending_acks())
+        self._chan.send(cmd)
+
+    def _enqueue_buy(self, wh: int, prods: List[wam.AProduct]):
+        cmd = wam.ACommands()
+        r = cmd.buy.add()
+        r.whnum = wh
+        r.things.extend(prods)
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    def _enqueue_pack(self, wh: int, prods: List[wam.AProduct], ship: int):
+        cmd = wam.ACommands()
+        r = cmd.topack.add()
+        r.whnum, r.shipid = wh, ship
+        r.things.extend(prods)
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    def _enqueue_load(self, wh: int, truck: int, ship: int):
+        cmd = wam.ACommands()
+        r = cmd.load.add()
+        r.whnum, r.truckid, r.shipid = wh, truck, ship
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    def _enqueue_query(self, package: int):
+        cmd = wam.ACommands()
+        r = cmd.queries.add()
+        r.packageid = package
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    # ───────────────────────────── receive loop ────────────────────────────
+    def _recv_loop(self):
+        while self._running:
+            try:
+                raw = self._chan.recv(timeout=1)
+                if raw is None:
+                    continue
+                resp = wam.AResponses()
+                resp.ParseFromString(raw)
+
+                # ACK bookkeeping
+                for a in resp.acks:
+                    self._chan.mark_acked(a)
+
+                # minimal logging – you can expand as desired
+                if resp.error:
+                    for e in resp.error:
+                        logger.warning("World error: %s (seq=%d)", e.err, e.originseqnum)
+
+                if resp.finished:
+                    logger.info("World requested shutdown → disconnecting")
+                    self.shutdown()
+            except ChannelClosed:
+                break
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("recv‑loop crash: %s", exc)
+
+    # ───────────────────────────── graceful close ──────────────────────────
+    def shutdown(self):
+        if not self._running:
+            return
+        try:
+            cmd = wam.ACommands(disconnect=True)
+            self._chan.send(cmd)
+        finally:
+            self._running = False
+            self._chan.close()
