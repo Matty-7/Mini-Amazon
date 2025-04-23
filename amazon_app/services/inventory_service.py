@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from amazon_app.models.product import Product
 from amazon_app.models.shipment import Shipment
-from amazon_app.proto_generated import world_amazon_1_pb2 as pb
+from amazon_app.protocols.world_amazon_1_pb2 import ACommands as pb
 from .world_client import ReliableChannel
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ import socket
 import sys
 import argparse
 import logging
-
+import queue
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -39,7 +39,7 @@ if __name__ == "__main__":
             sys.exit(1)
         
         # Now proceed with the client
-        client = WorldClient(hostname, port)
+        client = WorldClient(hostname, port, queue.Queue())
         
         # connect to world
         print("Connecting to world...")
