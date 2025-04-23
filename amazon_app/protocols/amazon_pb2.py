@@ -22,44 +22,47 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-import common_pb2 as common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x61mazon.proto\x12\namazon_ups\x1a\x0c\x63ommon.proto\"\x91\x01\n\rRequestPickup\x12\x13\n\x0bups_user_id\x18\x01 \x01(\t\x12#\n\x05items\x18\x02 \x03(\x0b\x32\x14.amazon_ups.ItemInfo\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\x12\x30\n\x10user_destination\x18\x04 \x01(\x0b\x32\x16.amazon_ups.Coordinate\"O\n\x08Redirect\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12/\n\x0fnew_destination\x18\x02 \x01(\x0b\x32\x16.amazon_ups.Coordinate\"\x1c\n\x06\x43\x61ncel\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"1\n\tLoadReady\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\"\x1f\n\tReturnAck\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"1\n\tPickupAck\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\"2\n\x0bRedirectAck\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\"0\n\tCancelAck\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\"J\n\x0cTruckArrived\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"7\n\x0f\x44\x65liveryStarted\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\"4\n\x0e\x44\x65liveryFailed\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0e\n\x06reason\x18\x02 \x01(\t\"4\n\x08Returned\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"R\n\x0fReturnDelivered\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12+\n\x0b\x64\x65stination\x18\x02 \x01(\x0b\x32\x16.amazon_ups.Coordinate\"\xcd\x02\n\x0b\x41mazonToUPS\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x13\n\x06\x61\x63knum\x18| \x01(\x03H\x01\x88\x01\x01\x12\x33\n\x0erequest_pickup\x18\x01 \x01(\x0b\x32\x19.amazon_ups.RequestPickupH\x00\x12(\n\x08redirect\x18\x02 \x01(\x0b\x32\x14.amazon_ups.RedirectH\x00\x12$\n\x06\x63\x61ncel\x18\x03 \x01(\x0b\x32\x12.amazon_ups.CancelH\x00\x12+\n\nload_ready\x18\x04 \x01(\x0b\x32\x15.amazon_ups.LoadReadyH\x00\x12#\n\x08pure_ack\x18\x05 \x01(\x0b\x32\x0f.amazon_ups.AckH\x00\x12+\n\nreturn_ack\x18\x06 \x01(\x0b\x32\x15.amazon_ups.ReturnAckH\x00\x42\n\n\x08msg_typeB\t\n\x07_acknum\"\x83\x04\n\x0bUPSToAmazon\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x13\n\x06\x61\x63knum\x18| \x01(\x03H\x01\x88\x01\x01\x12+\n\npickup_ack\x18\x01 \x01(\x0b\x32\x15.amazon_ups.PickupAckH\x00\x12/\n\x0credirect_ack\x18\x02 \x01(\x0b\x32\x17.amazon_ups.RedirectAckH\x00\x12+\n\ncancel_ack\x18\x03 \x01(\x0b\x32\x15.amazon_ups.CancelAckH\x00\x12\x31\n\rtruck_arrived\x18\x04 \x01(\x0b\x32\x18.amazon_ups.TruckArrivedH\x00\x12\x37\n\x10\x64\x65livery_started\x18\x05 \x01(\x0b\x32\x1b.amazon_ups.DeliveryStartedH\x00\x12\x35\n\x0f\x64\x65livery_failed\x18\x06 \x01(\x0b\x32\x1a.amazon_ups.DeliveryFailedH\x00\x12,\n\x0creturned_msg\x18\x07 \x01(\x0b\x32\x14.amazon_ups.ReturnedH\x00\x12\x37\n\x10return_delivered\x18\x08 \x01(\x0b\x32\x1b.amazon_ups.ReturnDeliveredH\x00\x12#\n\x08pure_ack\x18\t \x01(\x0b\x32\x0f.amazon_ups.AckH\x00\x42\n\n\x08msg_typeB\t\n\x07_acknumb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x61mazon.proto\x12\namazon.ups\"\"\n\nCoordinate\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x08ItemInfo\x12\x11\n\titem_name\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"\xc5\x01\n\x0b\x41mazonToUPS\x12\x0c\n\x04\x61\x63ks\x18| \x03(\x03\x12\x31\n\x0erequest_pickup\x18\x01 \x03(\x0b\x32\x19.amazon.ups.RequestPickup\x12&\n\x08redirect\x18\x02 \x03(\x0b\x32\x14.amazon.ups.Redirect\x12\"\n\x06\x63\x61ncel\x18\x03 \x03(\x0b\x32\x12.amazon.ups.Cancel\x12)\n\nload_ready\x18\x04 \x03(\x0b\x32\x15.amazon.ups.LoadReady\"\xf0\x02\n\x0bUPSToAmazon\x12\x0c\n\x04\x61\x63ks\x18| \x03(\x03\x12*\n\npickup_ack\x18\x01 \x03(\x0b\x32\x16.amazon.ups.PickupResp\x12.\n\x0credirect_ack\x18\x02 \x03(\x0b\x32\x18.amazon.ups.RedirectResp\x12*\n\ncancel_ack\x18\x03 \x03(\x0b\x32\x16.amazon.ups.CancelResp\x12/\n\rtruck_arrived\x18\x04 \x03(\x0b\x32\x18.amazon.ups.TruckArrived\x12\x35\n\x10\x64\x65livery_started\x18\x06 \x03(\x0b\x32\x1b.amazon.ups.DeliveryStarted\x12\x37\n\x11\x64\x65livery_complete\x18\x07 \x03(\x0b\x32\x1c.amazon.ups.DeliveryComplete\x12*\n\x0creturned_msg\x18\x08 \x03(\x0b\x32\x14.amazon.ups.Returned\"\xb3\x01\n\rRequestPickup\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x13\n\x0bups_user_id\x18\x01 \x01(\t\x12#\n\x05items\x18\x02 \x03(\x0b\x32\x14.amazon.ups.ItemInfo\x12\x10\n\x08order_id\x18\x03 \x01(\x03\x12\x14\n\x0cwarehouse_id\x18\x04 \x01(\x05\x12\x30\n\x10user_destination\x18\x05 \x01(\x0b\x32\x16.amazon.ups.Coordinate\"_\n\x08Redirect\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12/\n\x0fnew_destination\x18\x02 \x01(\x0b\x32\x16.amazon.ups.Coordinate\",\n\x06\x43\x61ncel\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"A\n\tLoadReady\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\"/\n\tReturnAck\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"T\n\nPickupResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08order_id\x18\x02 \x01(\x03\x12\x10\n\x08truck_id\x18\x03 \x01(\x05\"S\n\x0cRedirectResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0e\n\x06reason\x18\x03 \x01(\t\"Q\n\nCancelResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0e\n\x06reason\x18\x03 \x01(\t\"Z\n\x0cTruckArrived\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"5\n\x0f\x44\x65liveryStarted\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"6\n\x10\x44\x65liveryComplete\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"D\n\x08Returned\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"b\n\x0fReturnDelivered\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12+\n\x0b\x64\x65stination\x18\x02 \x01(\x0b\x32\x16.amazon.ups.Coordinateb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'amazon_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_REQUESTPICKUP']._serialized_start=43
-  _globals['_REQUESTPICKUP']._serialized_end=188
-  _globals['_REDIRECT']._serialized_start=190
-  _globals['_REDIRECT']._serialized_end=269
-  _globals['_CANCEL']._serialized_start=271
-  _globals['_CANCEL']._serialized_end=299
-  _globals['_LOADREADY']._serialized_start=301
-  _globals['_LOADREADY']._serialized_end=350
-  _globals['_RETURNACK']._serialized_start=352
-  _globals['_RETURNACK']._serialized_end=383
-  _globals['_PICKUPACK']._serialized_start=385
-  _globals['_PICKUPACK']._serialized_end=434
-  _globals['_REDIRECTACK']._serialized_start=436
-  _globals['_REDIRECTACK']._serialized_end=486
-  _globals['_CANCELACK']._serialized_start=488
-  _globals['_CANCELACK']._serialized_end=536
-  _globals['_TRUCKARRIVED']._serialized_start=538
-  _globals['_TRUCKARRIVED']._serialized_end=612
-  _globals['_DELIVERYSTARTED']._serialized_start=614
-  _globals['_DELIVERYSTARTED']._serialized_end=669
-  _globals['_DELIVERYFAILED']._serialized_start=671
-  _globals['_DELIVERYFAILED']._serialized_end=723
-  _globals['_RETURNED']._serialized_start=725
-  _globals['_RETURNED']._serialized_end=777
-  _globals['_RETURNDELIVERED']._serialized_start=779
-  _globals['_RETURNDELIVERED']._serialized_end=861
-  _globals['_AMAZONTOUPS']._serialized_start=864
-  _globals['_AMAZONTOUPS']._serialized_end=1197
-  _globals['_UPSTOAMAZON']._serialized_start=1200
-  _globals['_UPSTOAMAZON']._serialized_end=1715
+  _globals['_COORDINATE']._serialized_start=28
+  _globals['_COORDINATE']._serialized_end=62
+  _globals['_ITEMINFO']._serialized_start=64
+  _globals['_ITEMINFO']._serialized_end=111
+  _globals['_AMAZONTOUPS']._serialized_start=114
+  _globals['_AMAZONTOUPS']._serialized_end=311
+  _globals['_UPSTOAMAZON']._serialized_start=314
+  _globals['_UPSTOAMAZON']._serialized_end=682
+  _globals['_REQUESTPICKUP']._serialized_start=685
+  _globals['_REQUESTPICKUP']._serialized_end=864
+  _globals['_REDIRECT']._serialized_start=866
+  _globals['_REDIRECT']._serialized_end=961
+  _globals['_CANCEL']._serialized_start=963
+  _globals['_CANCEL']._serialized_end=1007
+  _globals['_LOADREADY']._serialized_start=1009
+  _globals['_LOADREADY']._serialized_end=1074
+  _globals['_RETURNACK']._serialized_start=1076
+  _globals['_RETURNACK']._serialized_end=1123
+  _globals['_PICKUPRESP']._serialized_start=1125
+  _globals['_PICKUPRESP']._serialized_end=1209
+  _globals['_REDIRECTRESP']._serialized_start=1211
+  _globals['_REDIRECTRESP']._serialized_end=1294
+  _globals['_CANCELRESP']._serialized_start=1296
+  _globals['_CANCELRESP']._serialized_end=1377
+  _globals['_TRUCKARRIVED']._serialized_start=1379
+  _globals['_TRUCKARRIVED']._serialized_end=1469
+  _globals['_DELIVERYSTARTED']._serialized_start=1471
+  _globals['_DELIVERYSTARTED']._serialized_end=1524
+  _globals['_DELIVERYCOMPLETE']._serialized_start=1526
+  _globals['_DELIVERYCOMPLETE']._serialized_end=1580
+  _globals['_RETURNED']._serialized_start=1582
+  _globals['_RETURNED']._serialized_end=1650
+  _globals['_RETURNDELIVERED']._serialized_start=1652
+  _globals['_RETURNDELIVERED']._serialized_end=1750
 # @@protoc_insertion_point(module_scope)

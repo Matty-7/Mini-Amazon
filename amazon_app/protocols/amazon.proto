@@ -1,118 +1,118 @@
 syntax = "proto3";
 
-package amazon_ups;
+package amazon.ups;
 
-import "common.proto";
-
-// Amazon → UPS Messages
-
-// Triggered when a user confirms a purchase
-message RequestPickup {
-  string ups_user_id = 1;
-  repeated ItemInfo items = 2;
-  int32 warehouse_id = 3;
-  Coordinate user_destination = 4;
+// Common types
+message Coordinate {
+  int32 x = 1;
+  int32 y = 2;
 }
 
-// Sent when a user changes the delivery address
+message ItemInfo {
+  string item_name = 1;
+  int32 quantity = 2;
+}
+
+// Envelope for Amazon → UPS messages
+message AmazonToUPS {
+  repeated int64 acks = 124;
+  repeated RequestPickup request_pickup = 1;
+  repeated Redirect redirect = 2;
+  repeated Cancel cancel = 3;
+  repeated LoadReady load_ready = 4;
+}
+
+// Envelope for UPS → Amazon messages
+message UPSToAmazon {
+  repeated int64 acks = 124;
+  repeated PickupResp pickup_ack = 1;
+  repeated RedirectResp redirect_ack = 2;
+  repeated CancelResp cancel_ack = 3;
+  repeated TruckArrived truck_arrived = 4;
+  repeated DeliveryStarted delivery_started = 6;
+  repeated DeliveryComplete delivery_complete = 7;
+  repeated Returned returned_msg = 8;
+}
+
+// Amazon → UPS messages
+message RequestPickup {
+  int64 seqnum = 123;
+  string ups_user_id = 1;
+  repeated ItemInfo items = 2;
+  int64 order_id = 3;
+  int32 warehouse_id = 4;
+  Coordinate user_destination = 5;
+}
+
 message Redirect {
+  int64 seqnum = 123;
   int64 package_id = 1;
   Coordinate new_destination = 2;
 }
 
-// Used to cancel an order
 message Cancel {
+  int64 seqnum = 123;
   int64 package_id = 1;
 }
 
-// Sent when a package has been loaded onto a truck
 message LoadReady {
+  int64 seqnum = 123;
   int64 package_id = 1;
   int32 truck_id = 2;
 }
 
-// Confirm receiving the returned package
 message ReturnAck {
+  int64 seqnum = 123;
   int64 package_id = 1;
 }
 
-// UPS → Amazon Messages
-
-// Confirms truck assignment
-message PickupAck {
+// UPS → Amazon messages
+message PickupResp {
+  int64 seqnum = 123;
   int64 package_id = 1;
-  int32 truck_id = 2;
+  int64 order_id = 2;
+  int32 truck_id = 3;
 }
 
-// Confirms redirect success
-message RedirectAck {
-  int64 package_id = 1;
-  bool success = 2;
-}
-
-// Confirms cancellation
-message CancelAck {
+message RedirectResp {
+  int64 seqnum = 123;
   int64 package_id = 1;
   bool success = 2;
+  string reason = 3;
 }
 
-// The truck has arrived at the warehouse
+message CancelResp {
+  int64 seqnum = 123;
+  int64 package_id = 1;
+  bool success = 2;
+  string reason = 3;
+}
+
 message TruckArrived {
+  int64 seqnum = 123;
   int64 package_id = 1;
   int32 truck_id = 2;
   int32 warehouse_id = 3;
 }
 
-// Indicates that delivery is in progress
 message DeliveryStarted {
+  int64 seqnum = 123;
   int64 package_id = 1;
-  int32 truck_id = 2;
 }
 
-// Indicates delivery failure
-message DeliveryFailed {
+message DeliveryComplete {
+  int64 seqnum = 123;
   int64 package_id = 1;
-  string reason = 2;
 }
 
-// Indicates the package is returned to the warehouse
 message Returned {
+  int64 seqnum = 123;
   int64 package_id = 1;
   int32 warehouse_id = 3;
 }
 
-// Indicates successful return delivery
 message ReturnDelivered {
+  int64 seqnum = 123;
   int64 package_id = 1;
   Coordinate destination = 2;
-}
-
-// Envelope Messages
-message AmazonToUPS {
-  int64 seqnum = 123; 
-  optional int64 acknum = 124;
-  oneof msg_type {
-    RequestPickup request_pickup = 1;
-    Redirect redirect = 2;
-    Cancel cancel = 3;
-    LoadReady load_ready = 4;
-    Ack pure_ack = 5; 
-    ReturnAck return_ack = 6;
-  }
-}
-
-message UPSToAmazon {
-  int64 seqnum = 123;
-  optional int64 acknum = 124;
-  oneof msg_type {
-    PickupAck pickup_ack = 1;
-    RedirectAck redirect_ack = 2;
-    CancelAck cancel_ack = 3;
-    TruckArrived truck_arrived = 4;
-    DeliveryStarted delivery_started = 5;
-    DeliveryFailed delivery_failed = 6;
-    Returned returned_msg = 7;
-    ReturnDelivered return_delivered = 8;
-    Ack pure_ack = 9; 
-  }
 }

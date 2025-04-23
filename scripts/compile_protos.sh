@@ -3,8 +3,8 @@
 # Script to compile protobuf files to Python
 
 # Set directories
-PROTO_DIR="amazon_app/protocols"
-PYTHON_OUT_DIR="amazon_app/protocols"
+PROTO_DIR="../amazon_app/protocols"
+PYTHON_OUT_DIR="../amazon_app/protocols"
 
 # Create the output directory if it doesn't exist
 mkdir -p "$PYTHON_OUT_DIR"
