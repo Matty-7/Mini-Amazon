@@ -1,0 +1,1036 @@
+./
+
+--- File: ./socket_handler.py ---
+./test/
+
+--- File: ./test/test_world_client.py ---
+from amazon_app.services.world_client import WorldClient
+import amazon_app.protocols.world_amazon_1_pb2 as wam
+import socket
+import sys
+import argparse
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Test World Client')
+    parser.add_argument('--host', default="ece650-vm.colab.duke.edu", 
+                        help='Server hostname (default: ece650-vm.colab.duke.edu)')
+    parser.add_argument('--port', type=int, default=23456, 
+                        help='Server port (default: 23456)')
+    args = parser.parse_args()
+    
+    hostname = args.host
+    port = args.port
+    
+    try:
+        # First check if the server is reachable
+        print(f"Verifying connection to {hostname}:{port}...")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)
+        
+        try:
+            result = sock.connect_ex((hostname, port))
+            if result != 0:
+                print(f"Error: Could not connect to {hostname}:{port}")
+                print(f"Error code: {result}")
+                sys.exit(1)
+            sock.close()
+            print(f"Successfully connected to {hostname}:{port}")
+        except socket.error as e:
+            print(f"Socket error: {e}")
+            sys.exit(1)
+        
+        # Now proceed with the client
+        client = WorldClient(hostname, port)
+        
+        # connect to world
+        print("Connecting to world...")
+        client.connect([
+            wam.AInitWarehouse(id=1, x=3, y=4)
+        ])
+        print("Connected successfully!")
+
+        # simulate purchase
+        print("Buying product...")
+        product = wam.AProduct(id=101, description="book", count=5)
+        client.buy(1, [product])
+
+        # simulate pack
+        print("Packing product...")
+        client.pack(1, [product], 10001)
+
+        # simulate load
+        print("Loading product...")
+        client.load(1, truckid=1, shipid=10001)
+
+        # simulate query
+        print("Querying package...")
+        client.query(packageid=10001)
+        
+        print("Test completed successfully")
+
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        # Make sure to cleanly shutdown the client
+        if 'client' in locals():
+            print("Shutting down client...")
+            client.shutdown()
+
+--- File: ./test/test_world_client_extended.py ---
+"""
+WorldClient – pure‑unit tests (no live World Simulator needed).
+
+Strategy
+--------
+‣ Replace the TCP socket with an in‑memory DummySocket.
+‣ Pre‑enqueue framed protobuf responses into DummySocket.recvq to simulate
+  the server.
+‣ Verify that WorldClient sends correctly framed AConnect/ACommands messages
+  and that ACK bookkeeping clears the retransmit queue.
+"""
+from __future__ import annotations
+
+import queue
+import socket
+import struct
+from typing import Tuple, List
+
+import pytest
+from google.protobuf.internal.encoder import _VarintBytes
+
+import amazon_app.protocols.world_amazon_1_pb2 as wam
+from amazon_app.services.world_client import WorldClient
+
+
+# --------------------------------------------------------------------------- #
+# Utilities                                                                   #
+# --------------------------------------------------------------------------- #
+def frame(pb_msg) -> bytes:
+    """Return the bytes <varint32 len><protobuf payload> exactly as the
+    World Simulator expects (same algorithm as ReliableChannel._frame)."""
+    body: bytes = pb_msg.SerializeToString()
+    return _VarintBytes(len(body)) + body
+
+
+def drain(q: "queue.Queue[bytes]") -> List[bytes]:
+    """Drain *all* frames still sitting in DummySocket.sent for easy assertions."""
+    out: List[bytes] = []
+    while not q.empty():
+        out.append(q.get_nowait())
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Fake socket                                                                 #
+# --------------------------------------------------------------------------- #
+class DummySocket:
+    """Minimal drop‑in replacement for a blocking TCP socket."""
+
+    def __init__(self):
+        self.sent: "queue.Queue[bytes]" = queue.Queue()
+        self.recvq: "queue.Queue[bytes]" = queue.Queue()
+        self._closed = False
+
+    # ----- tx/rx API -------------------------------------------------------- #
+    def sendall(self, data: bytes):
+        self.sent.put(data)
+        
+    def recv(self, n: int) -> bytes:
+        """
+        Block until at least one byte is available, exactly like a real
+        TCP socket in blocking mode (the default that ReliableChannel uses).
+
+        Returning *zero* bytes would tell ReliableChannel that the peer
+        closed the connection, so we must not do that here.
+        """
+        chunk = self.recvq.get()          # ← blocks until data present
+        if len(chunk) > n:                # respect caller's `n`
+            rest = chunk[n:]
+            self.recvq.put_nowait(rest)   # push back extra bytes
+            chunk = chunk[:n]
+        return chunk
+
+
+    # ----- misc standard methods ------------------------------------------- #
+    def setsockopt(self, *_, **__):  # TCP_NODELAY — ignored
+        pass
+
+    def shutdown(self, _how):  # SHUT_RDWR
+        self._closed = True
+
+    def close(self):
+        self._closed = True
+
+    def getpeername(self):
+        return ("dummy", 0)
+
+    # python‑style helpers --------------------------------------------------- #
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+
+# --------------------------------------------------------------------------- #
+# PyTest fixtures                                                             #
+# --------------------------------------------------------------------------- #
+@pytest.fixture()
+def dummy_socket(monkeypatch) -> DummySocket:
+    sock = DummySocket()
+    monkeypatch.setattr("socket.create_connection", lambda addr, timeout=None: sock)
+    # speed up retransmit thread so the test suite finishes instantly
+    monkeypatch.setattr(
+        "amazon_app.utils.reliable_channel.RetryInterval", 0.02, raising=False
+    )
+    return sock
+
+
+@pytest.fixture()
+def wc(dummy_socket) -> Tuple[WorldClient, DummySocket]:
+    """Returns (world_client, dummy_socket)."""
+    return WorldClient("dummy", 12345), dummy_socket
+
+
+# --------------------------------------------------------------------------- #
+# Tests                                                                       #
+# --------------------------------------------------------------------------- #
+def _enqueue_handshake(sock: DummySocket, worldid: int = 1):
+    """Push an AConnected frame into the recv queue so that the very next
+    wc.connect() call succeeds immediately."""
+    connected = wam.AConnected(worldid=worldid, result="connected!")
+    sock.recvq.put(frame(connected))
+
+
+def test_full_buy_pack_load_query_cycle(wc):
+    client, sock = wc
+    _enqueue_handshake(sock)
+
+    # 1 CONNECT ------------------------------------------------------------- #
+    client.connect([wam.AInitWarehouse(id=1, x=3, y=4)])
+
+    # 2 BUY — immediately ACK it so retransmit queue is cleared ------------- #
+    client.buy(1, [wam.AProduct(id=42, description="book", count=3)])
+    sock.recvq.put(frame(wam.AResponses(acks=[1])))
+
+    # 3 PACK / LOAD --------------------------------------------------------- #
+    client.pack(1, [wam.AProduct(id=42, description="book", count=3)], shipid=888)
+    client.load(1, truckid=5, shipid=888)
+
+    # 4 QUERY --------------------------------------------------------------- #
+    client.query(packageid=888)
+
+    # flush any protocol frames that went out
+    frames = drain(sock.sent)
+
+    # — at least four outbound frames:
+    #   • AConnect
+    #   • ACommands(BUY)
+    #   • ACommands(PACK + LOAD)  ← WorldClient batches pack+load separately
+    #   • ACommands(QUERY)
+    assert len(frames) >= 4
+
+    # quick sanity‑check: first outbound frame *must* be an AConnect
+    first_payload = frames[0][1:]  # skip size varint
+    assert wam.AConnect.FromString(first_payload).isAmazon is True
+
+
+def test_shutdown_closes_socket(wc):
+    client, sock = wc
+    _enqueue_handshake(sock)
+    client.connect([])
+    client.shutdown()
+    assert sock.closed is True
+./amazon_app/
+./amazon_app/proto_generated/
+
+--- File: ./amazon_app/config.py ---
+
+--- File: ./amazon_app/__init__.py ---
+from flask import Flask
+
+def create_app():
+    # Initialize your application
+    app = Flask(__name__)
+    
+    @app.route('/')
+    def index():
+        return "Amazon App is running!"
+    
+    return app  # Return your Flask application instance
+./amazon_app/utils/
+
+--- File: ./amazon_app/utils/reliable_channel.py ---
+"""High‑level *ReliableChannel* wrapper for the Mini‑Amazon/UPS World Simulator.
+
+Key properties
+--------------
+* **Varint‑framed protobuf** – each outbound frame is prefixed with a Varint32
+  length, exactly as required by the world server.
+* **Exactly‑once semantics** – every *business* request carries a `seqnum`; the
+  same frame is stored under those sequence numbers until an ACK arrives in a
+  later `AResponses.acks` list. Frames are resent with exponential back‑off
+  until ACKed or the connection is shut down.
+* **Thread‑safe** – `.send()` may be called concurrently; a dedicated reader
+  thread feeds a thread‑safe queue for callers to `.recv()`.
+
+This refactor removes the earlier brittle `WhichOneof("")` call and aligns the
+pending‑ACK bookkeeping with the World Simulator’s contract: the server ACKs
+**child request** `seqnum`s – not some hidden transport ID – so we map every
+child’s `seqnum` to the raw frame for retransmission.
+"""
+
+from __future__ import annotations
+
+import logging
+import socket
+import threading
+import time
+from queue import Empty, Queue
+from typing import Dict, Generic, List, Optional, TypeVar
+
+from google.protobuf.internal.decoder import _DecodeVarint32
+from google.protobuf.message import Message
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound=Message)
+
+
+class ChannelClosed(RuntimeError):
+    """Raised when the underlying TCP connection is irrecoverably closed."""
+
+
+class ReliableChannel(Generic[T]):
+    """Bi‑directional *exactly‑once* channel with automatic retransmission."""
+
+    RETRY_INTERVAL_S: float = 0.5  # initial back‑off base
+
+    def __init__(self, host: str, port: int) -> None:
+        self._sock = socket.create_connection((host, port))
+        self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+        self._tx_lock = threading.Lock()
+        self._seq: int = 0  # transport‑level fallback seq allocator
+        self._pending: Dict[int, bytes] = {}  # seqnum → raw frame
+
+        self._rx_q: "Queue[bytes]" = Queue()
+        self._shutdown = threading.Event()
+
+        threading.Thread(target=self._recv_loop, daemon=True).start()
+        threading.Thread(target=self._retransmit_loop, daemon=True).start()
+        
+    @property
+    def remote(self):
+        return self._sock.getpeername()
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def send(self, pb_msg: Message) -> List[int]:
+        """Serialize *pb_msg*, transmit it, and return **all** seqnums carried."""
+        with self._tx_lock:
+            carried: List[int] = self._extract_seqnums(pb_msg)
+
+            # If nothing carried (e.g. AConnect), allocate a transport id
+            if not carried:
+                self._seq += 1
+                carried = [self._seq]
+                if hasattr(pb_msg, "seqnum") and getattr(pb_msg, "seqnum") == 0:
+                    setattr(pb_msg, "seqnum", carried[0])
+
+            raw_frame = self._frame(pb_msg.SerializeToString())
+            logger.info("Sending %s (seqs=%s)", pb_msg.DESCRIPTOR.name, carried)
+            self._sock.sendall(raw_frame)
+
+            for s in carried:
+                self._pending[s] = raw_frame
+            return carried
+
+    def recv(self, timeout: Optional[float] = None) -> Optional[bytes]:
+        try:
+            return self._rx_q.get(timeout=timeout)
+        except Empty:
+            return None
+
+    def close(self) -> None:
+        self._shutdown.set()
+        try:
+            self._sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        finally:
+            self._sock.close()
+
+    def pending_acks(self) -> List[int]:
+        return list(self._pending.keys())
+
+    def mark_acked(self, ack: int) -> None:
+        self._pending.pop(ack, None)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _extract_seqnums(self, msg: Message) -> List[int]:
+        """Return **all** non‑zero `seqnum` fields contained in *msg*."""
+        seqs: List[int] = []
+
+        def _maybe_add(m):
+            if hasattr(m, "seqnum"):
+                val = getattr(m, "seqnum")
+                if val:
+                    seqs.append(val)
+
+        if msg.DESCRIPTOR.name == "ACommands":
+            for fld in msg.DESCRIPTOR.fields:
+                if fld.label == fld.LABEL_REPEATED and fld.message_type:
+                    for sub in getattr(msg, fld.name):
+                        _maybe_add(sub)
+        else:
+            _maybe_add(msg)
+        return seqs
+
+    @staticmethod
+    def _frame(body: bytes) -> bytes:
+        size = len(body)
+        header = bytearray()
+        while size > 127:
+            header.append((size & 0x7F) | 0x80)
+            size >>= 7
+        header.append(size & 0x7F)
+        return bytes(header) + body
+
+    # ----------------------------- background loops -------------------
+    def _recv_loop(self) -> None:
+        buf = bytearray()
+        try:
+            while not self._shutdown.is_set():
+                chunk = self._sock.recv(4096)
+                if not chunk:
+                    lvl = logger.info if self._shutdown.is_set() else logger.error
+                    lvl("TCP connection closed%s", " locally" if self._shutdown.is_set() else " by peer")
+                    raise ChannelClosed()
+                buf.extend(chunk)
+                while True:
+                    try:
+                        msg_len, idx = _DecodeVarint32(buf, 0)
+                    except IndexError:
+                        break  # incomplete varint
+                    if len(buf) - idx < msg_len:
+                        break  # incomplete payload
+                    payload = bytes(buf[idx : idx + msg_len])
+                    del buf[: idx + msg_len]
+                    self._rx_q.put(payload)
+        except ChannelClosed:
+            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("recv loop died: %s", exc)
+        finally:
+            self._shutdown.set()
+
+    def _retransmit_loop(self) -> None:
+        interval = self.RETRY_INTERVAL_S
+        while not self._shutdown.is_set():
+            time.sleep(interval)
+            for seq, frame in list(self._pending.items()):
+                try:
+                    self._sock.sendall(frame)
+                    logger.debug("Retransmitted seq=%d", seq)
+                except OSError as exc:
+                    logger.error("Retransmit failed: %s", exc)
+                    self._shutdown.set()
+                    break
+            interval = min(interval * 2, 4 * self.RETRY_INTERVAL_S)./amazon_app/models/
+
+--- File: ./amazon_app/models/warehouse.py ---
+
+--- File: ./amazon_app/models/__init.py ---
+
+--- File: ./amazon_app/models/product.py ---
+
+--- File: ./amazon_app/models/shipment.py ---
+./amazon_app/routes/
+
+--- File: ./amazon_app/routes/admin_routes.py ---
+
+--- File: ./amazon_app/routes/__init__.py ---
+
+--- File: ./amazon_app/routes/order_routes.py ---
+./amazon_app/protocols/
+
+--- File: ./amazon_app/protocols/amazon_ups_pb2_grpc.py ---
+# Generated by the gRPC Python protocol compiler plugin. DO NOT EDIT!
+"""Client and server classes corresponding to protobuf-defined services."""
+import grpc
+import warnings
+
+
+GRPC_GENERATED_VERSION = '1.71.0'
+GRPC_VERSION = grpc.__version__
+_version_not_supported = False
+
+try:
+    from grpc._utilities import first_version_is_lower
+    _version_not_supported = first_version_is_lower(GRPC_VERSION, GRPC_GENERATED_VERSION)
+except ImportError:
+    _version_not_supported = True
+
+if _version_not_supported:
+    raise RuntimeError(
+        f'The grpc package installed is at version {GRPC_VERSION},'
+        + f' but the generated code in amazon_ups_pb2_grpc.py depends on'
+        + f' grpcio>={GRPC_GENERATED_VERSION}.'
+        + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
+        + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
+    )
+
+--- File: ./amazon_app/protocols/world_amazon_1_pb2_grpc.py ---
+# Generated by the gRPC Python protocol compiler plugin. DO NOT EDIT!
+"""Client and server classes corresponding to protobuf-defined services."""
+import grpc
+import warnings
+
+
+GRPC_GENERATED_VERSION = '1.71.0'
+GRPC_VERSION = grpc.__version__
+_version_not_supported = False
+
+try:
+    from grpc._utilities import first_version_is_lower
+    _version_not_supported = first_version_is_lower(GRPC_VERSION, GRPC_GENERATED_VERSION)
+except ImportError:
+    _version_not_supported = True
+
+if _version_not_supported:
+    raise RuntimeError(
+        f'The grpc package installed is at version {GRPC_VERSION},'
+        + f' but the generated code in world_amazon_1_pb2_grpc.py depends on'
+        + f' grpcio>={GRPC_GENERATED_VERSION}.'
+        + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
+        + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
+    )
+
+--- File: ./amazon_app/protocols/amazon_ups_pb2.py ---
+# -*- coding: utf-8 -*-
+# Generated by the protocol buffer compiler.  DO NOT EDIT!
+# NO CHECKED-IN PROTOBUF GENCODE
+# source: amazon_ups.proto
+# Protobuf Python Version: 5.29.0
+"""Generated protocol buffer code."""
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import descriptor_pool as _descriptor_pool
+from google.protobuf import runtime_version as _runtime_version
+from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
+_runtime_version.ValidateProtobufRuntimeVersion(
+    _runtime_version.Domain.PUBLIC,
+    5,
+    29,
+    0,
+    '',
+    'amazon_ups.proto'
+)
+# @@protoc_insertion_point(imports)
+
+_sym_db = _symbol_database.Default()
+
+
+
+
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61mazon_ups.proto\x12\namazon.ups\"\"\n\nCoordinate\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x08ItemInfo\x12\x11\n\titem_name\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"\xc5\x01\n\x0b\x41mazonToUPS\x12\x0c\n\x04\x61\x63ks\x18| \x03(\x03\x12\x31\n\x0erequest_pickup\x18\x01 \x03(\x0b\x32\x19.amazon.ups.RequestPickup\x12&\n\x08redirect\x18\x02 \x03(\x0b\x32\x14.amazon.ups.Redirect\x12\"\n\x06\x63\x61ncel\x18\x03 \x03(\x0b\x32\x12.amazon.ups.Cancel\x12)\n\nload_ready\x18\x04 \x03(\x0b\x32\x15.amazon.ups.LoadReady\"\xf0\x02\n\x0bUPSToAmazon\x12\x0c\n\x04\x61\x63ks\x18| \x03(\x03\x12*\n\npickup_ack\x18\x01 \x03(\x0b\x32\x16.amazon.ups.PickupResp\x12.\n\x0credirect_ack\x18\x02 \x03(\x0b\x32\x18.amazon.ups.RedirectResp\x12*\n\ncancel_ack\x18\x03 \x03(\x0b\x32\x16.amazon.ups.CancelResp\x12/\n\rtruck_arrived\x18\x04 \x03(\x0b\x32\x18.amazon.ups.TruckArrived\x12\x35\n\x10\x64\x65livery_started\x18\x06 \x03(\x0b\x32\x1b.amazon.ups.DeliveryStarted\x12\x37\n\x11\x64\x65livery_complete\x18\x07 \x03(\x0b\x32\x1c.amazon.ups.DeliveryComplete\x12*\n\x0creturned_msg\x18\x08 \x03(\x0b\x32\x14.amazon.ups.Returned\"\xb3\x01\n\rRequestPickup\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x13\n\x0bups_user_id\x18\x01 \x01(\t\x12#\n\x05items\x18\x02 \x03(\x0b\x32\x14.amazon.ups.ItemInfo\x12\x10\n\x08order_id\x18\x03 \x01(\x03\x12\x14\n\x0cwarehouse_id\x18\x04 \x01(\x05\x12\x30\n\x10user_destination\x18\x05 \x01(\x0b\x32\x16.amazon.ups.Coordinate\"_\n\x08Redirect\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12/\n\x0fnew_destination\x18\x02 \x01(\x0b\x32\x16.amazon.ups.Coordinate\",\n\x06\x43\x61ncel\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"A\n\tLoadReady\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\"/\n\tReturnAck\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"T\n\nPickupResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08order_id\x18\x02 \x01(\x03\x12\x10\n\x08truck_id\x18\x03 \x01(\x05\"S\n\x0cRedirectResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0e\n\x06reason\x18\x03 \x01(\t\"Q\n\nCancelResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0e\n\x06reason\x18\x03 \x01(\t\"Z\n\x0cTruckArrived\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"5\n\x0f\x44\x65liveryStarted\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"6\n\x10\x44\x65liveryComplete\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"D\n\x08Returned\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"b\n\x0fReturnDelivered\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12+\n\x0b\x64\x65stination\x18\x02 \x01(\x0b\x32\x16.amazon.ups.Coordinateb\x06proto3')
+
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'amazon_ups_pb2', _globals)
+if not _descriptor._USE_C_DESCRIPTORS:
+  DESCRIPTOR._loaded_options = None
+  _globals['_COORDINATE']._serialized_start=32
+  _globals['_COORDINATE']._serialized_end=66
+  _globals['_ITEMINFO']._serialized_start=68
+  _globals['_ITEMINFO']._serialized_end=115
+  _globals['_AMAZONTOUPS']._serialized_start=118
+  _globals['_AMAZONTOUPS']._serialized_end=315
+  _globals['_UPSTOAMAZON']._serialized_start=318
+  _globals['_UPSTOAMAZON']._serialized_end=686
+  _globals['_REQUESTPICKUP']._serialized_start=689
+  _globals['_REQUESTPICKUP']._serialized_end=868
+  _globals['_REDIRECT']._serialized_start=870
+  _globals['_REDIRECT']._serialized_end=965
+  _globals['_CANCEL']._serialized_start=967
+  _globals['_CANCEL']._serialized_end=1011
+  _globals['_LOADREADY']._serialized_start=1013
+  _globals['_LOADREADY']._serialized_end=1078
+  _globals['_RETURNACK']._serialized_start=1080
+  _globals['_RETURNACK']._serialized_end=1127
+  _globals['_PICKUPRESP']._serialized_start=1129
+  _globals['_PICKUPRESP']._serialized_end=1213
+  _globals['_REDIRECTRESP']._serialized_start=1215
+  _globals['_REDIRECTRESP']._serialized_end=1298
+  _globals['_CANCELRESP']._serialized_start=1300
+  _globals['_CANCELRESP']._serialized_end=1381
+  _globals['_TRUCKARRIVED']._serialized_start=1383
+  _globals['_TRUCKARRIVED']._serialized_end=1473
+  _globals['_DELIVERYSTARTED']._serialized_start=1475
+  _globals['_DELIVERYSTARTED']._serialized_end=1528
+  _globals['_DELIVERYCOMPLETE']._serialized_start=1530
+  _globals['_DELIVERYCOMPLETE']._serialized_end=1584
+  _globals['_RETURNED']._serialized_start=1586
+  _globals['_RETURNED']._serialized_end=1654
+  _globals['_RETURNDELIVERED']._serialized_start=1656
+  _globals['_RETURNDELIVERED']._serialized_end=1754
+# @@protoc_insertion_point(module_scope)
+
+--- File: ./amazon_app/protocols/world_amazon_1_pb2.py ---
+# -*- coding: utf-8 -*-
+# Generated by the protocol buffer compiler.  DO NOT EDIT!
+# NO CHECKED-IN PROTOBUF GENCODE
+# source: world_amazon-1.proto
+# Protobuf Python Version: 5.29.0
+"""Generated protocol buffer code."""
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import descriptor_pool as _descriptor_pool
+from google.protobuf import runtime_version as _runtime_version
+from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
+_runtime_version.ValidateProtobufRuntimeVersion(
+    _runtime_version.Domain.PUBLIC,
+    5,
+    29,
+    0,
+    '',
+    'world_amazon-1.proto'
+)
+# @@protoc_insertion_point(imports)
+
+_sym_db = _symbol_database.Default()
+
+
+
+
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14world_amazon-1.proto\":\n\x08\x41Product\x12\n\n\x02id\x18\x01 \x02(\x03\x12\x13\n\x0b\x64\x65scription\x18\x02 \x02(\t\x12\r\n\x05\x63ount\x18\x03 \x02(\x05\"2\n\x0e\x41InitWarehouse\x12\n\n\x02id\x18\x01 \x02(\x05\x12\t\n\x01x\x18\x02 \x02(\x05\x12\t\n\x01y\x18\x03 \x02(\x05\"N\n\x08\x41\x43onnect\x12\x0f\n\x07worldid\x18\x01 \x01(\x03\x12\x1f\n\x06initwh\x18\x02 \x03(\x0b\x32\x0f.AInitWarehouse\x12\x10\n\x08isAmazon\x18\x03 \x02(\x08\"-\n\nAConnected\x12\x0f\n\x07worldid\x18\x01 \x02(\x03\x12\x0e\n\x06result\x18\x02 \x02(\t\"Q\n\x05\x41Pack\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x19\n\x06things\x18\x02 \x03(\x0b\x32\t.AProduct\x12\x0e\n\x06shipid\x18\x03 \x02(\x03\x12\x0e\n\x06seqnum\x18\x04 \x02(\x03\")\n\x07\x41Packed\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\")\n\x07\x41Loaded\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\"M\n\x0b\x41PutOnTruck\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x0f\n\x07truckid\x18\x02 \x02(\x05\x12\x0e\n\x06shipid\x18\x03 \x02(\x03\x12\x0e\n\x06seqnum\x18\x04 \x02(\x03\"I\n\rAPurchaseMore\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x19\n\x06things\x18\x02 \x03(\x0b\x32\t.AProduct\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"9\n\x04\x41\x45rr\x12\x0b\n\x03\x65rr\x18\x01 \x02(\t\x12\x14\n\x0coriginseqnum\x18\x02 \x02(\x03\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"+\n\x06\x41Query\x12\x11\n\tpackageid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\"=\n\x08\x41Package\x12\x11\n\tpackageid\x18\x01 \x02(\x03\x12\x0e\n\x06status\x18\x02 \x02(\t\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"\xaa\x01\n\tACommands\x12\x1b\n\x03\x62uy\x18\x01 \x03(\x0b\x32\x0e.APurchaseMore\x12\x16\n\x06topack\x18\x02 \x03(\x0b\x32\x06.APack\x12\x1a\n\x04load\x18\x03 \x03(\x0b\x32\x0c.APutOnTruck\x12\x18\n\x07queries\x18\x04 \x03(\x0b\x32\x07.AQuery\x12\x10\n\x08simspeed\x18\x05 \x01(\r\x12\x12\n\ndisconnect\x18\x06 \x01(\x08\x12\x0c\n\x04\x61\x63ks\x18\x07 \x03(\x03\"\xb8\x01\n\nAResponses\x12\x1f\n\x07\x61rrived\x18\x01 \x03(\x0b\x32\x0e.APurchaseMore\x12\x17\n\x05ready\x18\x02 \x03(\x0b\x32\x08.APacked\x12\x18\n\x06loaded\x18\x03 \x03(\x0b\x32\x08.ALoaded\x12\x10\n\x08\x66inished\x18\x04 \x01(\x08\x12\x14\n\x05\x65rror\x18\x05 \x03(\x0b\x32\x05.AErr\x12\x0c\n\x04\x61\x63ks\x18\x06 \x03(\x03\x12 \n\rpackagestatus\x18\x07 \x03(\x0b\x32\t.APackage')
+
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'world_amazon_1_pb2', _globals)
+if not _descriptor._USE_C_DESCRIPTORS:
+  DESCRIPTOR._loaded_options = None
+  _globals['_APRODUCT']._serialized_start=24
+  _globals['_APRODUCT']._serialized_end=82
+  _globals['_AINITWAREHOUSE']._serialized_start=84
+  _globals['_AINITWAREHOUSE']._serialized_end=134
+  _globals['_ACONNECT']._serialized_start=136
+  _globals['_ACONNECT']._serialized_end=214
+  _globals['_ACONNECTED']._serialized_start=216
+  _globals['_ACONNECTED']._serialized_end=261
+  _globals['_APACK']._serialized_start=263
+  _globals['_APACK']._serialized_end=344
+  _globals['_APACKED']._serialized_start=346
+  _globals['_APACKED']._serialized_end=387
+  _globals['_ALOADED']._serialized_start=389
+  _globals['_ALOADED']._serialized_end=430
+  _globals['_APUTONTRUCK']._serialized_start=432
+  _globals['_APUTONTRUCK']._serialized_end=509
+  _globals['_APURCHASEMORE']._serialized_start=511
+  _globals['_APURCHASEMORE']._serialized_end=584
+  _globals['_AERR']._serialized_start=586
+  _globals['_AERR']._serialized_end=643
+  _globals['_AQUERY']._serialized_start=645
+  _globals['_AQUERY']._serialized_end=688
+  _globals['_APACKAGE']._serialized_start=690
+  _globals['_APACKAGE']._serialized_end=751
+  _globals['_ACOMMANDS']._serialized_start=754
+  _globals['_ACOMMANDS']._serialized_end=924
+  _globals['_ARESPONSES']._serialized_start=927
+  _globals['_ARESPONSES']._serialized_end=1111
+# @@protoc_insertion_point(module_scope)
+./amazon_app/services/
+
+--- File: ./amazon_app/services/inventory_service.py ---
+from __future__ import annotations
+
+from enum import Enum, auto
+from typing import Dict, Optional
+import logging
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+from amazon_app.models.product import Product
+from amazon_app.models.shipment import Shipment
+from amazon_app.proto_generated import world_amazon_1_pb2 as pb
+from .world_client import ReliableChannel
+
+logger = logging.getLogger(__name__)
+
+
+class ShipmentStatus(str, Enum):
+    PACKING = "packing"
+    PACKED = "packed"
+    LOADING = "loading"
+    LOADED = "loaded"
+    DELIVERING = "delivering"
+    DELIVERED = "delivered"
+
+
+class InventoryService:
+    """High‑level façade combining DB operations and world/UPS side‑effects."""
+
+    def __init__(self, db_session_factory, world_channel: ReliableChannel[pb.AResponses]):
+        self._db_session_factory = db_session_factory
+        self._world = world_channel
+
+    # ------------------------------------------------------------------
+    # Public API – called by Flask route handlers
+    # ------------------------------------------------------------------
+
+    def create_order(
+        self,
+        whnum: int,
+        items: Dict[int, int],  # product_id -> cnt
+        user_dest: tuple[int, int],
+    ) -> int:
+        """Insert DB rows, send APack to world, return *shipid*."""
+        with self._db_session_factory() as db:  # type: Session
+            # 1) Ensure inventory has enough stock; if not, raise 409
+            for prod_id, cnt in items.items():
+                prod: Product = db.get(Product, prod_id)
+                if prod is None or prod.stock < cnt:
+                    raise ValueError("Insufficient inventory for product %d" % prod_id)
+            # 2) Allocate new shipid (auto‑inc seq in DB)
+            ship = Shipment.create(db, whnum, items, user_dest)  # type: ignore[arg-type]
+            db.commit()
+        # 3) Send topack cmd
+        apack = pb.APack(whnum=whnum, shipid=ship.id, seqnum=0)
+        for pid, cnt in items.items():
+            apack.things.add(id=pid, description="", count=cnt)
+        self._world.send(apack)  # seqnum set inside
+        logger.info("Order %d created & APack sent", ship.id)
+        return ship.id
+
+    def query_status(self, shipid: int) -> ShipmentStatus:
+        with self._db_session_factory() as db:
+            ship: Optional[Shipment] = db.get(Shipment, shipid)
+            if ship is None:
+                raise KeyError("Unknown shipment %d" % shipid)
+            return ShipmentStatus(ship.status)
+
+    # ------------------------------------------------------------------
+    # World event processing – called by background consumer thread
+    # ------------------------------------------------------------------
+
+    def on_world_message(self, resp: pb.AResponses) -> None:
+        """Handle *AResponses* and perform DB transitions (idempotent)."""
+        with self._db_session_factory() as db:  # noqa: SIM117
+            # 1) inventory arrived  ➜ increment stock
+            for arrive in resp.arrived:
+                for p in arrive.things:
+                    self._inc_stock(db, p.id, p.count)
+            # 2) ready / loaded state transitions
+            for ready in resp.ready:
+                self._update_status(db, ready.shipid, ShipmentStatus.PACKED)
+            for loaded in resp.loaded:
+                self._update_status(db, loaded.shipid, ShipmentStatus.LOADED)
+            # 3) package status reply (queried)
+            for pkg in resp.packagestatus:
+                self._update_status(db, pkg.packageid, ShipmentStatus(pkg.status))
+            db.commit()
+            # ACK housekeeping
+            for ack in resp.acks:
+                self._world.mark_acked(ack)
+
+    # --------------------------- helpers ------------------------------
+
+    def _inc_stock(self, db: Session, pid: int, delta: int) -> None:
+        prod: Product | None = db.get(Product, pid)
+        if prod is None:
+            prod = Product(id=pid, description="auto", stock=0)
+            db.add(prod)
+        prod.stock += delta
+
+    def _update_status(self, db: Session, shipid: int, new_status: ShipmentStatus) -> None:
+        ship: Shipment | None = db.get(Shipment, shipid)
+        if ship is None:
+            logger.warning("Received event for unknown shipment %d", shipid)
+            return
+        # idempotent: only advance if makes sense
+        cur = ShipmentStatus(ship.status)
+        order = [
+            ShipmentStatus.PACKING,
+            ShipmentStatus.PACKED,
+            ShipmentStatus.LOADING,
+            ShipmentStatus.LOADED,
+            ShipmentStatus.DELIVERING,
+            ShipmentStatus.DELIVERED,
+        ]
+        if order.index(new_status) > order.index(cur):
+            ship.status = new_status.value
+
+--- File: ./amazon_app/services/ups_client.py ---
+
+--- File: ./amazon_app/services/world_client.py ---
+"""Typed *WorldClient* helper wrapping ReliableChannel for Mini‑Amazon.
+
+It speaks the protobuf schema you pasted (proto2) and exposes the four high‑
+level operations: **buy / pack / load / query**.  Sequence numbers and ACK
+book‑keeping now exactly match the World Simulator’s expectations.
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+from typing import List
+
+import amazon_app.protocols.world_amazon_1_pb2 as wam
+from amazon_app.utils.reliable_channel import ChannelClosed, ReliableChannel
+
+logger = logging.getLogger(__name__)
+
+
+class WorldClient:  # ---------------------------------------------------------
+    """High‑level façade – one instance per TCP connection."""
+
+    def __init__(self, host: str, port: int):
+        self._chan: ReliableChannel[wam.AResponses] = ReliableChannel(host, port)
+        self._seq = 0
+        self._lock = threading.Lock()
+        self._running = False  # flipped to *True* only after handshake
+
+    # ───────────────────────────────── handshake ────────────────────────────
+    def connect(self, warehouses: List[wam.AInitWarehouse], *, timeout: int = 30) -> int:
+        """Send *AConnect* and return the worldid on success."""
+        logger.info("Connecting to world %s:%d …", *self._chan.remote)
+
+        conn = wam.AConnect(isAmazon=True)
+        conn.initwh.extend(warehouses)
+        self._chan.send(conn)
+
+        raw = self._chan.recv(timeout)
+        if raw is None:
+            raise RuntimeError(f"World simulator did not reply within {timeout}s")
+
+        ack = wam.AConnected()
+        ack.ParseFromString(raw)
+        if ack.result != "connected!":
+            raise RuntimeError(f"Handshake rejected: {ack.result}")
+        logger.info("Handshake OK, worldid=%d", ack.worldid)
+
+        self._running = True
+        threading.Thread(target=self._recv_loop, daemon=True).start()
+        return ack.worldid
+
+    # ───────────────────────────────── public helpers ───────────────────────
+    def buy(self, wh: int, prods: List[wam.AProduct]):
+        self._enqueue_buy(wh, prods)
+
+    def pack(self, wh: int, prods: List[wam.AProduct], shipid: int):
+        self._enqueue_pack(wh, prods, shipid)
+
+    def load(self, wh: int, truckid: int, shipid: int):
+        self._enqueue_load(wh, truckid, shipid)
+
+    def query(self, packageid: int):
+        self._enqueue_query(packageid)
+
+    # ───────────────────────────── internal builders ────────────────────────
+    def _next_seq(self) -> int:
+        with self._lock:
+            self._seq += 1
+            return self._seq
+
+    def _dispatch(self, cmd: wam.ACommands):
+        cmd.acks.extend(self._chan.pending_acks())
+        self._chan.send(cmd)
+
+    def _enqueue_buy(self, wh: int, prods: List[wam.AProduct]):
+        cmd = wam.ACommands()
+        r = cmd.buy.add()
+        r.whnum = wh
+        r.things.extend(prods)
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    def _enqueue_pack(self, wh: int, prods: List[wam.AProduct], ship: int):
+        cmd = wam.ACommands()
+        r = cmd.topack.add()
+        r.whnum, r.shipid = wh, ship
+        r.things.extend(prods)
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    def _enqueue_load(self, wh: int, truck: int, ship: int):
+        cmd = wam.ACommands()
+        r = cmd.load.add()
+        r.whnum, r.truckid, r.shipid = wh, truck, ship
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    def _enqueue_query(self, package: int):
+        cmd = wam.ACommands()
+        r = cmd.queries.add()
+        r.packageid = package
+        r.seqnum = self._next_seq()
+        self._dispatch(cmd)
+
+    # ───────────────────────────── receive loop ────────────────────────────
+    def _recv_loop(self):
+        while self._running:
+            try:
+                raw = self._chan.recv(timeout=1)
+                if raw is None:
+                    continue
+                resp = wam.AResponses()
+                resp.ParseFromString(raw)
+
+                # ACK bookkeeping
+                for a in resp.acks:
+                    self._chan.mark_acked(a)
+
+                # minimal logging – you can expand as desired
+                if resp.error:
+                    for e in resp.error:
+                        logger.warning("World error: %s (seq=%d)", e.err, e.originseqnum)
+
+                if resp.finished:
+                    logger.info("World requested shutdown → disconnecting")
+                    self.shutdown()
+            except ChannelClosed:
+                break
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("recv‑loop crash: %s", exc)
+
+    # ───────────────────────────── graceful close ──────────────────────────
+    def shutdown(self):
+        if not self._running:
+            return
+        try:
+            cmd = wam.ACommands(disconnect=True)
+            self._chan.send(cmd)
+        finally:
+            self._running = False
+            self._chan.close()
+--- File: ./setup.py ---
+from setuptools import setup, find_packages
+
+setup(
+    name="amazon_app",
+    version="0.1",
+    packages=find_packages(),
+) 
+--- File: ./ups_client.py ---
+./world_simulator_exec-master/
+./world_simulator_exec-master/docker_deploy/
+./static/
+./scripts/
+
+--- File: ./app.py ---
+./templates/
+./.git/
+./.git/objects/
+./.git/objects/61/
+./.git/objects/92/
+./.git/objects/3e/
+./.git/objects/50/
+./.git/objects/03/
+./.git/objects/35/
+./.git/objects/0b/
+./.git/objects/34/
+./.git/objects/5a/
+./.git/objects/5f/
+./.git/objects/05/
+./.git/objects/b5/
+./.git/objects/b2/
+./.git/objects/ac/
+./.git/objects/d0/
+./.git/objects/da/
+./.git/objects/a2/
+./.git/objects/a5/
+./.git/objects/bc/
+./.git/objects/ab/
+./.git/objects/c9/
+./.git/objects/fd/
+./.git/objects/f2/
+./.git/objects/e3/
+./.git/objects/e4/
+./.git/objects/c1/
+./.git/objects/c6/
+./.git/objects/4e/
+./.git/objects/18/
+./.git/objects/pack/
+./.git/objects/7c/
+./.git/objects/1f/
+./.git/objects/80/
+./.git/objects/74/
+./.git/objects/1a/
+./.git/objects/17/
+./.git/objects/7b/
+./.git/objects/8f/
+./.git/objects/19/
+./.git/objects/4c/
+./.git/objects/21/
+./.git/objects/86/
+./.git/objects/72/
+./.git/objects/44/
+./.git/objects/43/
+./.git/objects/88/
+./.git/objects/07/
+./.git/objects/38/
+./.git/objects/6e/
+./.git/objects/36/
+./.git/objects/5d/
+./.git/objects/31/
+./.git/objects/info/
+./.git/objects/65/
+./.git/objects/54/
+./.git/objects/98/
+./.git/objects/53/
+./.git/objects/3f/
+./.git/objects/5e/
+./.git/objects/37/
+./.git/objects/08/
+./.git/objects/6d/
+./.git/objects/06/
+./.git/objects/6c/
+./.git/objects/99/
+./.git/objects/52/
+./.git/objects/63/
+./.git/objects/0a/
+./.git/objects/ba/
+./.git/objects/a8/
+./.git/objects/a6/
+./.git/objects/b9/
+./.git/objects/a1/
+./.git/objects/ef/
+./.git/objects/cc/
+./.git/objects/e6/
+./.git/objects/c2/
+./.git/objects/2d/
+./.git/objects/41/
+./.git/objects/77/
+./.git/objects/84/
+./.git/objects/4f/
+./.git/objects/8d/
+./.git/objects/76/
+./.git/objects/40/
+./.git/objects/2e/
+./.git/objects/13/
+./.git/objects/7a/
+./.git/objects/25/
+./.git/info/
+./.git/logs/
+./.git/logs/refs/
+./.git/logs/refs/heads/
+./.git/logs/refs/remotes/
+./.git/logs/refs/remotes/github/
+./.git/logs/refs/remotes/origin/
+./.git/hooks/
+./.git/refs/
+./.git/refs/heads/
+./.git/refs/tags/
+./.git/refs/remotes/
+./.git/refs/remotes/github/
+./.git/refs/remotes/origin/
