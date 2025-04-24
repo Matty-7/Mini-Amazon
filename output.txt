@@ -580,123 +580,107 @@ if not _descriptor._USE_C_DESCRIPTORS:
 # @@protoc_insertion_point(module_scope)
 
 --- File: ./amazon_app/protocols/amazon_ups.proto ---
-syntax = "proto3";
+syntax = "proto2";
+package edu.duke.ece568.project.Protos;
 
-package amazon.ups;
-
-// Common types
-message Coordinate {
-  int32 x = 1;
-  int32 y = 2;
-}
-
-message ItemInfo {
-  string item_name = 1;
-  int32 quantity = 2;
-}
-
-// Envelope for Amazon → UPS messages
 message AmazonToUPS {
-  repeated int64 acks = 124;
+  repeated int64 acks = 123;
   repeated RequestPickup request_pickup = 1;
   repeated Redirect redirect = 2;
   repeated Cancel cancel = 3;
   repeated LoadReady load_ready = 4;
 }
 
-// Envelope for UPS → Amazon messages
 message UPSToAmazon {
-  repeated int64 acks = 124;
-  repeated PickupResp pickup_ack = 1;
-  repeated RedirectResp redirect_ack = 2;
-  repeated CancelResp cancel_ack = 3;
+  repeated int64 acks = 123;
+  repeated PickupResp pickup_resp = 1;
+  repeated RedirectResp redirect_resp = 2;
+  repeated CancelResp cancel_resp = 3;
   repeated TruckArrived truck_arrived = 4;
-  repeated DeliveryStarted delivery_started = 6;
-  repeated DeliveryComplete delivery_complete = 7;
-  repeated Returned returned_msg = 8;
+  repeated DeliveryStarted delivery_started = 5;
+  repeated DeliveryComplete delivery_complete = 6;
 }
 
-// Amazon → UPS messages
+message Coordinate {
+  required int32 x = 1;
+  required int32 y = 2;
+}
+
+message ItemInfo {
+  required string item_name = 1;
+  required int32 quantity = 2;
+}
+
+//Amazon to UPS
 message RequestPickup {
-  int64 seqnum = 123;
-  string ups_user_id = 1;
+  required int64 seqnum = 123;
+  required int64 ups_user_id = 1;
   repeated ItemInfo items = 2;
-  int64 order_id = 3;
-  int32 warehouse_id = 4;
-  Coordinate user_destination = 5;
+  required int64 order_id = 3;
+  required int32 warehouse_id = 4;
+  required Coordinate user_destination = 5;
 }
 
 message Redirect {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  Coordinate new_destination = 2;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required Coordinate new_destination = 2;
 }
 
 message Cancel {
-  int64 seqnum = 123;
-  int64 package_id = 1;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
 
 message LoadReady {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  int32 truck_id = 2;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
 
 message ReturnAck {
-  int64 seqnum = 123;
-  int64 package_id = 1;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
 
-// UPS → Amazon messages
+// UPS to Amazon
+
 message PickupResp {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  int64 order_id = 2;
-  int32 truck_id = 3;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required int64 order_id = 2;
+  required int32 truck_id = 3;
 }
+
 
 message RedirectResp {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  bool success = 2;
-  string reason = 3;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required bool success = 2;
+  required string reason = 3;
 }
 
 message CancelResp {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  bool success = 2;
-  string reason = 3;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required bool success = 2;
+  required string reason = 3;
 }
 
 message TruckArrived {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  int32 truck_id = 2;
-  int32 warehouse_id = 3;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required int32 truck_id = 2;
+  required int32 warehouse_id = 3;
 }
 
 message DeliveryStarted {
-  int64 seqnum = 123;
-  int64 package_id = 1;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
 
 message DeliveryComplete {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-}
-
-message Returned {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  int32 warehouse_id = 3;
-}
-
-message ReturnDelivered {
-  int64 seqnum = 123;
-  int64 package_id = 1;
-  Coordinate destination = 2;
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
 
 --- File: ./amazon_app/protocols/world_amazon_1_pb2.py ---
@@ -1558,6 +1542,7 @@ if __name__ == '__main__':
 ./.git/objects/18/
 ./.git/objects/pack/
 ./.git/objects/7c/
+./.git/objects/89/
 ./.git/objects/1f/
 ./.git/objects/80/
 ./.git/objects/74/
@@ -1579,6 +1564,7 @@ if __name__ == '__main__':
 ./.git/objects/38/
 ./.git/objects/6e/
 ./.git/objects/36/
+./.git/objects/5c/
 ./.git/objects/5d/
 ./.git/objects/31/
 ./.git/objects/info/
@@ -1608,9 +1594,11 @@ if __name__ == '__main__':
 ./.git/objects/b9/
 ./.git/objects/a1/
 ./.git/objects/ef/
+./.git/objects/c3/
 ./.git/objects/cc/
 ./.git/objects/e6/
 ./.git/objects/c2/
+./.git/objects/cb/
 ./.git/objects/ce/
 ./.git/objects/79/
 ./.git/objects/2d/
@@ -1628,6 +1616,7 @@ if __name__ == '__main__':
 ./.git/objects/2b/
 ./.git/objects/13/
 ./.git/objects/7a/
+./.git/objects/8e/
 ./.git/objects/25/
 ./.git/info/
 ./.git/logs/

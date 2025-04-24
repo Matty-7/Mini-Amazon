@@ -14,7 +14,7 @@ try:
     from amazon_app.services.world_client import WorldClient
     # Adjust import based on your actual protobuf file location/name
     # Example: from amazon_app.protocols import world_amazon_1_pb2 as wam
-    import amazon_app.protocols.world_amazon_1_pb2 as wam
+    import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 except ImportError as e:
     print(f"Error importing modules: {e}. Ensure config.py, world_client.py, "
           "and the protobuf definitions exist and are importable.")

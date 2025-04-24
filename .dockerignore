@@ -1,0 +1,5 @@
+**/.git
+**/__pycache__
+test/
+world_simulator_exec-master/
+*.md 
