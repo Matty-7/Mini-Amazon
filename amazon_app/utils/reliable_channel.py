@@ -75,10 +75,11 @@ class ReliableChannel(Generic[T]):
 
             # If nothing carried (e.g. AConnect), allocate a transport id
             if not carried:
-                self._seq += 1
-                carried = [self._seq]
-                if hasattr(pb_msg, "seqnum") and getattr(pb_msg, "seqnum") == 0:
-                    setattr(pb_msg, "seqnum", carried[0])
+                # 纯粹的控制/心跳帧（如空 ACommands）不做 pending-ACK 追踪
+                raw_frame = self._frame(pb_msg.SerializeToString())
+                logger.info("Sending %s (no-seq)", pb_msg.DESCRIPTOR.name)
+                self._sock.sendall(raw_frame)
+                return []
 
             raw_frame = self._frame(pb_msg.SerializeToString())
             logger.info("Sending %s (seqs=%s)", pb_msg.DESCRIPTOR.name, carried)

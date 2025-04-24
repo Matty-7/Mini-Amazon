@@ -2,6 +2,7 @@ from __future__ import annotations
 import logging
 import threading
 import queue
+import time
 from typing import List, Optional
 import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 from amazon_app.utils.reliable_channel import ChannelClosed, ReliableChannel
@@ -10,13 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 class WorldClient:
+    HEARTBEAT_SEC = 2  # ≤ World 的 idle-timeout，实测 2 s 足够
 
-    def __init__(self, host: str, port: int, response_queue: queue.Queue):
+    def __init__(self, host: str, port: int, response_queue: queue.Queue, simspeed: int = 1):
         self._chan: ReliableChannel[wam.AResponses] = ReliableChannel(host, port)
         self._seq = 0
         self._lock = threading.Lock()
         self._running = False
         self._response_queue = response_queue
+        self._simspeed = simspeed
+        self._hb_thread: threading.Thread | None = None
+        self._acks_to_send: list[int] = []  # 收集需要回传给World的ACK
 
     def connect(self, warehouses: List[wam.AInitWarehouse], *, timeout: int = 30) -> Optional[int]:
         logger.info("Connecting to world %s:%d …", *self._chan.remote)
@@ -37,8 +42,19 @@ class WorldClient:
                 raise RuntimeError(f"Handshake rejected: {ack.result}")
             logger.info("Handshake OK, worldid=%d", ack.worldid)
 
+            # Send initial empty command with simspeed right after successful connection
+            logger.info(f"Sending initial empty command with simspeed={self._simspeed}")
+            initial_cmd = wam.ACommands(simspeed=self._simspeed)
+            self._chan.send(initial_cmd)
+
             self._running = True
             threading.Thread(target=self._recv_loop, daemon=True).start()
+            
+            # 启动心跳线程
+            self._hb_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+            self._hb_thread.start()
+            logger.info("Heartbeat thread started")
+            
             return ack.worldid
         except (RuntimeError, ConnectionRefusedError, Exception) as e:
              logger.exception(f"Failed to connect to world: {e}")
@@ -67,10 +83,9 @@ class WorldClient:
             logger.warning("Attempted to dispatch command but client is not running.")
             return
         try:
-            # Add pending acks *before* sending the new command
-            pending = self._chan.pending_acks()
-            if pending:
-                 cmd.acks.extend(pending)
+            # Always include simspeed in every command
+            cmd.simspeed = self._simspeed
+            
             self._chan.send(cmd) # Assuming send handles serialization
         except ChannelClosed:
             logger.error("Cannot dispatch command: Channel is closed.")
@@ -164,6 +179,17 @@ class WorldClient:
                 break
             except queue.Full:
                  logger.warning("Response queue is full. Responses may be lost.")
+            except OSError as exc:
+                if self._running:
+                    logger.warning("OSError in receive loop: %s", exc)
+                    if exc.errno == 9:  # Bad file descriptor
+                        logger.info("Bad file descriptor error - channel likely closed")
+                        self._response_queue.put({"type": "disconnected"})
+                        self.shutdown()
+                    else:
+                        logger.exception("Receive loop encountered OSError: %s", exc)
+                        self._response_queue.put({"type": "recv_loop_error", "error": str(exc)})
+                break
             except Exception as exc:
                 logger.exception("Receive loop crashed: %s", exc)
                 self._response_queue.put({"type": "recv_loop_error", "error": str(exc)})
@@ -180,15 +206,44 @@ class WorldClient:
                 "things": [{"id": p.id, "description": p.description, "count": p.count} for p in item.things],
                 "seqnum": item.seqnum
             })
+            # 收到 World 的 seqnum → 之后要回 ACK
+            self._acks_to_send.append(item.seqnum)
+            
         for item in resp.ready:
              items.append({"type": "ready", "shipid": item.shipid, "seqnum": item.seqnum})
+             # 收到 World 的 seqnum → 之后要回 ACK
+             self._acks_to_send.append(item.seqnum)
+             
         for item in resp.loaded:
              items.append({"type": "loaded", "shipid": item.shipid, "seqnum": item.seqnum})
+             # 收到 World 的 seqnum → 之后要回 ACK
+             self._acks_to_send.append(item.seqnum)
+             
         for item in resp.packagestatus:
              items.append({"type": "packagestatus", "packageid": item.packageid, "status": item.status, "seqnum": item.seqnum})
+             # 收到 World 的 seqnum → 之后要回 ACK
+             self._acks_to_send.append(item.seqnum)
 
         return items
 
+    def _heartbeat_loop(self):
+        """Periodically send an empty ACommands to keep the World alive."""
+        while self._running:
+            time.sleep(self.HEARTBEAT_SEC)
+            try:
+                beat = wam.ACommands()  # 心跳帧 *不要* simspeed
+                # 携带待回 ACK
+                if self._acks_to_send:
+                    beat.acks.extend(self._acks_to_send)
+                    self._acks_to_send.clear()
+                self._chan.send(beat)
+                logger.debug("Heartbeat sent")
+            except ChannelClosed:
+                logger.info("Heartbeat channel closed")
+                break
+            except Exception as exc:
+                logger.warning("Heartbeat error: %s", exc)
+                break
 
     def shutdown(self):
         if not self._running:
@@ -198,9 +253,6 @@ class WorldClient:
         try:
             if not self._chan.closed:
                  cmd = wam.ACommands(disconnect=True)
-                 pending = self._chan.pending_acks()
-                 if pending:
-                      cmd.acks.extend(pending)
                  self._chan.send(cmd)
                  logger.info("Sent disconnect command.")
             else:
@@ -209,6 +261,9 @@ class WorldClient:
              logger.warning(f"Error sending disconnect command during shutdown: {e}")
         finally:
             self._chan.close()
+            # 等待心跳线程结束
+            if self._hb_thread and self._hb_thread.is_alive():
+                self._hb_thread.join(timeout=1)
             logger.info("WorldClient connection closed.")
 
     def get_reliable_channel(self):

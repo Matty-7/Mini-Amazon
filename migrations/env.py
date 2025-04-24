@@ -15,7 +15,7 @@ from config import DATABASE_URL
 config = context.config
 
 # Override sqlalchemy.url from alembic.ini
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", "postgresql+psycopg2://amazon:amazon@localhost:5432/amazon")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -50,7 +50,6 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
-        literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
 
@@ -85,5 +84,5 @@ def run_migrations_online() -> None:
         run_migrations_offline()
 
 
-# Call only offline migration
-run_migrations_offline()
+# Call online migration instead of offline
+run_migrations_online()
