@@ -105,7 +105,10 @@ def response_processor_worker():
 
                 elif item_type == "error":
                     world_errors.append(item)
-                    logger.warning(f"World error received: {item}")
+                    logger.warning(f"World error received: originseqnum={item.get('originseqnum')}, error_message='{item.get('error_message')}'")
+                    # 提取具体的失败操作类型
+                    failed_seq = item.get('originseqnum')
+                    logger.warning(f"Command with seqnum={failed_seq} failed. Check previous logs to identify which operation this was.")
 
                 elif item_type == "finished":
                     logger.warning("World simulator finished. Application might stop functioning correctly.")
@@ -215,12 +218,11 @@ def handle_load():
     ship_id = data['shipment_id']
 
     try:
-        # Optional: Check if shipment is ready first using our state
+        # 检查shipment是否ready
         with state_lock:
             if not shipment_readiness.get(ship_id):
-                 logger.warning(f"Attempted to load shipment {ship_id} which is not marked as ready.")
-                 # Decide: reject request or send command anyway? Let's send it for now.
-                 # return jsonify({"error": f"Shipment {ship_id} is not ready for loading"}), 409 # 409 Conflict
+                logger.warning(f"Attempted to load shipment {ship_id} which is not marked as ready.")
+                return jsonify({"error": f"Shipment {ship_id} not ready for loading"}), 409
 
         world_client.load(wh=wh_id, truckid=truck_id, shipid=ship_id)
         return jsonify({"message": "Load command sent to world"}), 202
@@ -278,6 +280,10 @@ def get_status_summary():
 # --- Application Startup ---
 if __name__ == '__main__':
     logger.info("Starting Flask application...")
+
+    # 启用详细日志，便于观察通信过程
+    logging.getLogger('amazon_app.utils.reliable_channel').setLevel(logging.DEBUG)
+    logging.getLogger('amazon_app.services.world_client').setLevel(logging.DEBUG)
 
     # Prepare initial warehouse data for WorldClient connect
     initial_warehouses = []
