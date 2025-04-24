@@ -1,63 +1,102 @@
 syntax = "proto2";
-import "world_amazon.proto";
+package edu.duke.ece568.project.Protos;
 
-package amazon;
+message AmazonToUPS {
+  repeated int64 acks = 123;
+  repeated RequestPickup request_pickup = 1;
+  repeated Redirect redirect = 2;
+  repeated Cancel cancel = 3;
+  repeated LoadReady load_ready = 4;
+}
 
-option java_package = "edu.duke.ece568.erss.amazon.proto";
-option java_outer_classname = "AmazonUPSProtocol";
- 
-message UAcommand{
-   repeated UApicked pick = 2;
-   repeated UAdelivered deliver = 3;
+message UPSToAmazon {
+  repeated int64 acks = 123;
+  repeated PickupResp pickup_resp = 1;
+  repeated RedirectResp redirect_resp = 2;
+  repeated CancelResp cancel_resp = 3;
+  repeated TruckArrived truck_arrived = 4;
+  repeated DeliveryStarted delivery_started = 5;
+  repeated DeliveryComplete delivery_complete = 6;
 }
- 
-message Err{
-   optional string errorInfo = 1;
-   required int64 originseqnum = 2;
+
+message Coordinate {
+  required int32 x = 1;
+  required int32 y = 2;
 }
- 
-message Res{
-   repeated int64 ack = 1;
-   repeated Err err = 2;
+
+message ItemInfo {
+  required string item_name = 1;
+  required int32 quantity = 2;
 }
- 
-message UApicked{
-   required int64 seqnum = 1;
-   required int64 shipid = 2;
-   required int32 truckid = 3;
-   optional Err err = 4;
+
+//Amazon to UPS
+message RequestPickup {
+  required int64 seqnum = 123;
+  required int64 ups_user_id = 1;
+  repeated ItemInfo items = 2;
+  required int64 order_id = 3;
+  required int32 warehouse_id = 4;
+  required Coordinate user_destination = 5;
 }
- 
-message UAdelivered{
-   required int64 seqnum = 1;
-   required int64 shipid = 2;
-   optional Err err = 4;
-   optional int32 dest_x = 5;
-   optional int32 dest_y = 6;   
+
+message Redirect {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required Coordinate new_destination = 2;
 }
- 
-message UAstart{
-   required int32 worldid = 1;
-   required int64 seqnum = 2;
-} 
- 
-message AUcommand{
-   repeated AUpick pick = 1;
-   repeated AUdeliver deliver = 2;
+
+message Cancel {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
- 
-message AUpick{
-   required APack package = 1;
-   optional string ups_user_name = 2;
-   required int64 seqnum = 4;
-   required AInitWarehouse wh = 5;
-   required int32 x = 6;
-   required int32 y = 7;
- 
+
+message LoadReady {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
- 
-message AUdeliver{
-   required APack package = 1;
-   required int64 seqnum = 4;
-   optional Err err = 5;
+
+message ReturnAck {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+}
+
+// UPS to Amazon
+
+message PickupResp {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required int64 order_id = 2;
+  required int32 truck_id = 3;
+}
+
+
+message RedirectResp {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required bool success = 2;
+  required string reason = 3;
+}
+
+message CancelResp {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required bool success = 2;
+  required string reason = 3;
+}
+
+message TruckArrived {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required int32 truck_id = 2;
+  required int32 warehouse_id = 3;
+}
+
+message DeliveryStarted {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+}
+
+message DeliveryComplete {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
 }
