@@ -12,6 +12,8 @@ from flask import Flask, request, jsonify
 try:
     import config
     from amazon_app.services.world_client import WorldClient
+    from amazon_app.services.inventory_service import InventoryService
+    from amazon_app.db import SessionLocal
     # Adjust import based on your actual protobuf file location/name
     # Example: from amazon_app.protocols import world_amazon_1_pb2 as wam
     import amazon_app.pb_generated.world_amazon_1_pb2 as wam
@@ -51,6 +53,10 @@ world_client = WorldClient(
     port=app.config['WORLD_PORT'],
     response_queue=response_queue
 )
+
+# --- Initialize InventoryService ---
+logger.info("Initializing InventoryService...")
+inventory_service = InventoryService(SessionLocal, world_client.get_reliable_channel())
 
 # --- Response Processing Worker ---
 def response_processor_worker():
