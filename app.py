@@ -7,6 +7,9 @@ import threading
 import queue
 import time
 from flask import Flask, request, jsonify
+from amazon_app.pb_generated import amazon_ups_pb2 as aup
+from amazon_app.utils.reliable_channel import _DecodeVarint32  # 用于解析 framing
+
 
 # --- Configuration and Imports ---
 try:
@@ -170,6 +173,43 @@ def handle_buy():
     except Exception as e:
         logger.exception(f"Error processing /buy request: {e}")
         return jsonify({"error": "Internal server error processing request"}), 500
+
+
+@app.route('/ups', methods=['POST'])
+def handle_ups_message():
+    """Endpoint to receive UAcommand messages from UPS (mock or real)."""
+    try:
+        raw_data = request.get_data()
+        # decode varint32 framing
+        msg_len, idx = _DecodeVarint32(raw_data, 0)
+        if len(raw_data) - idx < msg_len:
+            return jsonify({"error": "Incomplete protobuf message"}), 400
+
+        payload = raw_data[idx:idx+msg_len]
+        cmd = aup.UAcommand()
+        cmd.ParseFromString(payload)
+
+        acks = []
+
+        with state_lock:
+            for pick in cmd.pick:
+                logger.info(f"UPS picked shipment {pick.shipid} with truck {pick.truckid}")
+                shipment_readiness[pick.shipid] = True  # 可视为 ready to load
+                acks.append(pick.seqnum)
+
+            for deliver in cmd.deliver:
+                logger.info(f"UPS delivered shipment {deliver.shipid}")
+                shipment_loaded_status[deliver.shipid] = True  # 可视为已送达
+                acks.append(deliver.seqnum)
+
+        # 回 ACK 给 mock_ups
+        res = aup.Res()
+        res.ack.extend(acks)
+        return res.SerializeToString(), 200, {'Content-Type': 'application/octet-stream'}
+
+    except Exception as e:
+        logger.exception("Error processing UPS message")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/pack', methods=['POST'])
