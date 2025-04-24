@@ -10,3 +10,8 @@ INITIAL_WAREHOUSES_DATA = [
 
 SIM_SPEED = int(os.getenv("SIM_SPEED", 1))
 
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://amazon:amazon@localhost:5432/amazon",
+)
+

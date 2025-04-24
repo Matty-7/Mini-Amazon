@@ -210,3 +210,7 @@ class WorldClient:
         finally:
             self._chan.close()
             logger.info("WorldClient connection closed.")
+
+    def get_reliable_channel(self):
+        """Returns the ReliableChannel instance for the InventoryService."""
+        return self._chan
