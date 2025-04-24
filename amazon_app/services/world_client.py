@@ -3,7 +3,7 @@ import logging
 import threading
 import queue
 import time
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 from amazon_app.utils.reliable_channel import ChannelClosed, ReliableChannel
 
@@ -13,15 +13,19 @@ logger = logging.getLogger(__name__)
 class WorldClient:
     HEARTBEAT_SEC = 2  # ≤ World 的 idle-timeout，实测 2 s 足够
 
-    def __init__(self, host: str, port: int, response_queue: queue.Queue, simspeed: int = 1):
+    def __init__(self, host: str, port: int, response_queue: queue.Queue, simspeed: int = 1, start_seq: int = 1):
         self._chan: ReliableChannel[wam.AResponses] = ReliableChannel(host, port)
-        self._seq = 0
+        self._seq = start_seq - 1  # 允许从高值开始，避免seqnum冲突
         self._lock = threading.Lock()
         self._running = False
         self._response_queue = response_queue
         self._simspeed = simspeed
         self._hb_thread: threading.Thread | None = None
         self._acks_to_send: list[int] = []  # 收集需要回传给World的ACK
+        self._pending_pack: list[tuple[int, list[wam.AProduct], int]] = []
+        self._inventory_ready: set[int] = set()  # whnum that already received stock
+        # 存储每个仓库最近收到的商品信息，用于PACK验证
+        self._last_arrived: Dict[int, List[Dict[str, Any]]] = {}
 
     def connect(self, warehouses: List[wam.AInitWarehouse], *, timeout: int = 30) -> Optional[int]:
         logger.info("Connecting to world %s:%d …", *self._chan.remote)
@@ -104,12 +108,44 @@ class WorldClient:
         self._dispatch(cmd)
 
     def _enqueue_pack(self, wh: int, prods: List[wam.AProduct], ship: int):
+        """Send PACK immediately if inventory already arrived, otherwise buffer."""
+        if wh in self._inventory_ready:
+            self._send_pack_now(wh, prods, ship)
+        else:
+            self._pending_pack.append((wh, prods, ship))
+            logger.info("Buffered PACK for ship %d – waiting for inventory at warehouse %d.", ship, wh)
+
+    def _send_pack_now(self, wh: int, prods: List[wam.AProduct], ship: int):
+        """Actually send the PACK command to World."""
         cmd = wam.ACommands()
+        # 在创建命令时就设置simspeed，而不是在最后
+        cmd.simspeed = self._simspeed
+        
         r = cmd.topack.add()
         r.whnum, r.shipid = wh, ship
-        r.things.extend(prods)
+        
+        # 确保所有产品的description字段不为空
+        validated_prods = []
+        for prod in prods:
+            if not prod.description:
+                # 如果description为空，设置一个默认值
+                logger.warning(f"Product id={prod.id} has empty description, setting default value")
+                prod.description = f"product_{prod.id}"
+            validated_prods.append(prod)
+            
+        r.things.extend(validated_prods)
         r.seqnum = self._next_seq()
-        logger.info(f"Enqueuing PACK command (Seq={r.seqnum}): WH={wh}, ShipID={ship}, {len(prods)} items")
+        
+        # 添加更详细的日志，包括完整的产品信息和simspeed
+        logger.info(f"Enqueuing PACK command (Seq={r.seqnum}): WH={wh}, ShipID={ship}, {len(validated_prods)} items, simspeed={cmd.simspeed}")
+        for p in validated_prods:
+            logger.debug(f"  - Product: id={p.id}, desc='{p.description}', count={p.count}")
+            
+        # 打印原始protobuf的详细内容
+        logger.debug(f"Raw PACK protobuf: {cmd}")
+        
+        # 删除这行，因为已经在前面设置了simspeed
+        # cmd.simspeed = self._simspeed
         self._dispatch(cmd)
 
     def _enqueue_load(self, wh: int, truck: int, ship: int):
@@ -147,11 +183,25 @@ class WorldClient:
                     # logger.debug(f"Marked ACKs: {list(resp.acks)}")
 
                 processed_data = self._process_responses(resp)
+                
+                # 收到任何响应后立即发送ACK，不等下一个心跳周期
+                # 这可以加速交互流程，减少延迟
+                if self._acks_to_send:
+                    try:
+                        # 创建只包含ACK的空命令
+                        ack_cmd = wam.ACommands(simspeed=self._simspeed)
+                        ack_cmd.acks.extend(self._acks_to_send)
+                        self._chan.send(ack_cmd)
+                        logger.debug(f"Immediately sent ACKs: {self._acks_to_send}")
+                        self._acks_to_send.clear()
+                    except Exception as e:
+                        logger.warning(f"Failed to send immediate ACKs: {e}")
+                        # 失败时不清空_acks_to_send，让下一个心跳尝试发送
+                
                 if processed_data:
                     for item in processed_data:
                          logger.debug(f"Putting item on response queue: {item}")
                          self._response_queue.put(item)
-
 
                 # Minimal logging
                 if resp.error:
@@ -200,6 +250,22 @@ class WorldClient:
     def _process_responses(self, resp: wam.AResponses) -> List[dict]:
         items = []
         for item in resp.arrived:
+            # 记录每个仓库最近收到的商品信息
+            whnum = item.whnum
+            if whnum not in self._last_arrived:
+                self._last_arrived[whnum] = []
+                
+            # 清空之前的记录，只保留最新一次ARRIVED
+            self._last_arrived[whnum] = []
+            
+            # 存储商品信息
+            for p in item.things:
+                self._last_arrived[whnum].append({
+                    'id': p.id,
+                    'description': p.description,
+                    'count': p.count
+                })
+                
             items.append({
                 "type": "arrived",
                 "whnum": item.whnum,
@@ -208,21 +274,34 @@ class WorldClient:
             })
             # 收到 World 的 seqnum → 之后要回 ACK
             self._acks_to_send.append(item.seqnum)
+            logger.info("World says items ARRIVED at warehouse %d (seq=%d)", item.whnum, item.seqnum)
+            
+            # 标记该仓库已收到库存
+            self._inventory_ready.add(item.whnum)
+            # 处理该仓库的所有等待中的PACK请求
+            for wh, prods, ship in list(self._pending_pack):
+                if wh == item.whnum:
+                    logger.info(f"Inventory now available at WH={wh}, sending buffered PACK for shipment {ship}")
+                    self._send_pack_now(wh, prods, ship)
+                    self._pending_pack.remove((wh, prods, ship))
             
         for item in resp.ready:
              items.append({"type": "ready", "shipid": item.shipid, "seqnum": item.seqnum})
              # 收到 World 的 seqnum → 之后要回 ACK
              self._acks_to_send.append(item.seqnum)
+             logger.info("World says shipment %d is PACKED (seq=%d)", item.shipid, item.seqnum)
              
         for item in resp.loaded:
              items.append({"type": "loaded", "shipid": item.shipid, "seqnum": item.seqnum})
              # 收到 World 的 seqnum → 之后要回 ACK
              self._acks_to_send.append(item.seqnum)
+             logger.info("World says shipment %d is LOADED (seq=%d)", item.shipid, item.seqnum)
              
         for item in resp.packagestatus:
              items.append({"type": "packagestatus", "packageid": item.packageid, "status": item.status, "seqnum": item.seqnum})
              # 收到 World 的 seqnum → 之后要回 ACK
              self._acks_to_send.append(item.seqnum)
+             logger.info("World says package %d status: %s (seq=%d)", item.packageid, item.status, item.seqnum)
 
         return items
 
@@ -231,13 +310,13 @@ class WorldClient:
         while self._running:
             time.sleep(self.HEARTBEAT_SEC)
             try:
-                beat = wam.ACommands()  # 心跳帧 *不要* simspeed
+                beat = wam.ACommands(simspeed=self._simspeed)  # 带上simspeed，确保World不会忽略此帧
                 # 携带待回 ACK
                 if self._acks_to_send:
                     beat.acks.extend(self._acks_to_send)
                     self._acks_to_send.clear()
                 self._chan.send(beat)
-                logger.debug("Heartbeat sent")
+                logger.debug("Heartbeat sent (acks=%s)", getattr(beat, 'acks', []))
             except ChannelClosed:
                 logger.info("Heartbeat channel closed")
                 break
