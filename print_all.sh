@@ -13,7 +13,8 @@ while IFS= read -r -d '' path; do
   if [ -d "$path" ]; then
     echo "${path}/" >> "$output_file"
   else
-    if [[ "$path" == *.py || "$path" == *.proto || "$path" == *.sh || "$path" == *.md ]]; then
+    # if [[ "$path" == *.py || "$path" == *.proto || "$path" == *.sh || "$path" == *.md ]]; then
+    if [[ "$path" == *.py || "$path" == *.proto ]]; then
       echo -e "\n--- File: $path ---" >> "$output_file"
       cat "$path" >> "$output_file"
     fi

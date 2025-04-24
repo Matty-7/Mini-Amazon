@@ -1,56 +1,124 @@
-# mini amazon
+# 🛒 Mini-Amazon System  
+**By Matty & Alex**
 
-A full-stack web application modeling Amazon system paired with warehouse and delivery system. It simulated the whole process from buying products to getting the package delivered. Frontend is developed with **Django** and backend is developed in **Java**. **Google Protocol Buffer** is used to communicate with world-simulator and mini UPS system partner.  
+## Overview
 
-author: Kewei Xia, Yue Yang
+This project simulates a simplified version of Amazon's logistics and marketplace system, integrating a Django-based web front-end with a backend daemon service, a PostgreSQL database, and real-time communication with a simulated world and UPS system using Protocol Buffers (proto2).  
 
-## Feature checklist(requirement)
+It supports user registration, seller functionality, order placement, warehouse selection, UPS tracking, and synchronized backend processing.
 
-- [x] Buy products(communicate with both the world and UPS).
-- [x] Different catalog of products.
-- [x] Check the status of an order.
-- [x] Specify the deliver address(i.e. (x,y)).
-- [x] Specify a UPS account name to associate the order with.
-- [x] Provide the *tracking number* for the shipment.
+---
 
-## Extra features we have
+## 🧱 Project Structure
 
-- [x] A **full-featured shopping cart**(implemented by jQuery + Ajax).
-    - check(& uncheck) any orders you want
-    - change the item count of each order **dynamically**
-    - delete any order you don't need anymore
-    - the price will change according to your action(e.g. delete order, change count)
-    - **sort** the orders via different constraints
-- [x] A **full-featured product management system** + seller.
-    - any authenticated user can register as a seller(or unregister)
-    - seller will has his/her own selling page, displaying all products they are selling
-    - sellers will have a product management system which he/she can 
-            - publish new products
-            - edit their selling products(e.g. name, price, category)
-            - delete(or on sell) their selling products
-- [x] Search bar in home page.
-    - search products from all categories
-    - search products in one specific category
-    - search products for one specific seller
-- [x] A **full-featured order page**.
-    - search bar --- locate any order by item name
-    - delete any history orders
-    - view detail of any orders
-- [x] Build-in data
-    - use **signals** to make sure we have some build-in data(e.g. initial items, defualt user), easy to deploy
-- [x] Warehouse **dynamic alloccation**.
-    - we have 10 build-in warehouses(as part of the initial data)
-    - we will allocate the nearest warehouse to each package(to facilate the delivery process)
-- [x] Email notification.
-    - we will send a confirmation email to user once purchase successful
-- [x] Product category.
-    - several category of products, can switch between them in the home page
-- [x] Edit user profile
-    - a separate page to allow user edit his/her personal infromation(e.g. name, email, password)
-- [x] Associate your amazon account with your UPS account.
-    - automatically associate each order with your UPS account
-- [x] Address book.
-    - store your frequently use address, fill out the address autimatically when checkout next time
-- [x] User-friendly UI and interaction.
-    - all edit info page will have some error handling, will show the error message if failed
-    - use jQuery + aJax to make interaction more smooth(e.g. use partial refresh in shopping cart)
+```bash
+.
+├── daemon/                 # Java-based backend daemon for order processing
+├── web-app/               # Django-based Amazon web platform
+├── nginx/                 # Nginx config for load balancing (if needed)
+├── worldSim/              # World simulator interface (via ProtoBuf)
+├── docker-compose.yml     # Multi-container setup for deployment
+```
+
+---
+
+## ⚙️ Features
+
+### ✅ Web Front-End (`web-app`)
+- User registration & login with role-based access (buyer/seller)
+- Item listing, shopping cart, checkout, order history
+- Seller dashboard for managing inventory
+- Dynamic category and image handling
+- Checkout includes address and UPS info with auto-warehouse selection
+
+### 🧠 Backend Daemon (`daemon`)
+- Communicates with World Simulator and UPS using:
+  - `world_amazon.proto`
+  - `ups_amazon.proto`
+  - `world_ups.proto`
+- Handles packing, loading, and truck coordination
+- Sends and acknowledges messages with retry logic
+- Order status updates fed back to web front-end
+
+### 📦 Logistics Simulation
+- Warehouse assignment based on customer coordinates
+- UPS truck interaction using a reliable channel
+- Auto-generated package status updates (e.g., packed → loaded → delivered)
+
+---
+
+## 🛠️ Setup & Run
+
+### Prerequisites
+- Docker + Docker Compose
+- Java 11+
+- Python 3.8+
+- PostgreSQL
+
+### Build & Launch
+
+```bash
+# Clone repo
+git clone <repo-url>
+cd <project-root>
+
+# Start the entire system
+docker-compose up --build
+```
+
+### Django Management Commands
+```bash
+# Enter web container
+docker exec -it mini-amazon-web bash
+
+# Apply migrations and create default data
+python manage.py migrate
+```
+
+---
+
+## 🔐 Default Credentials
+
+| Username       | Password     | Role     |
+|----------------|--------------|----------|
+| mini_amazon    | amazon12345  | Seller   |
+| xkw            | xkw12345     | Seller   |
+
+---
+
+## 📡 Protocol Overview
+
+We use `Protocol Buffers (proto2)` for all inter-system communication.
+
+- `world_amazon.proto` — commands to world: pack, load, query
+- `ups_amazon.proto` — Amazon <-> UPS coordination: pickup, redirect, cancel
+- `world_ups.proto` — UPS internal truck management
+
+---
+
+## 📂 File Highlights
+
+- `/daemon/.../AmazonDaemon.java` – Core handler for communication with World/UPS
+- `/web-app/amazon/...` – Django models, views, templates for the marketplace
+- `/web-app/users/...` – Django app for user management (profiles, roles)
+- `/docker-compose.yml` – Defines services for web, db, daemon, and nginx
+
+---
+
+## 🚨 Known Issues
+See `dangerlog.md` for unresolved bugs and edge case failures.
+
+---
+
+## 📄 Documentation
+- Protocol docs: `world_amazon.proto`, `ups_amazon.proto`
+- Design notes: `differentiation.pdf`
+- Sample outputs: `output.txt`
+
+---
+
+## 🙌 Authors
+
+**Matty & Alex**  
+ECE 568 Final Project, Duke University  
+April 2025
