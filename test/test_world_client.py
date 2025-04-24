@@ -1,10 +1,20 @@
-import pytest
-pytestmark = pytest.mark.integration
+# Import pytest only when running through pytest, not when run directly
+try:
+    import pytest
+    pytestmark = pytest.mark.integration
+except ImportError:
+    pass  # Skip when run directly
+
+# Adjust path for direct script execution
+import sys
+import os
+# Add the project root directory to Python path when run directly
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from amazon_app.services.world_client import WorldClient
 import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 import socket
-import sys
 import argparse
 import logging
 import queue
