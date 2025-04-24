@@ -1,5 +1,10 @@
 syntax = "proto2";
 
+package amazon;
+
+option java_package = "edu.duke.ece568.erss.amazon.proto";
+option java_outer_classname = "WorldAmazonProtocol";
+
 message AProduct{
   required int64 id = 1;
   required string description = 2;

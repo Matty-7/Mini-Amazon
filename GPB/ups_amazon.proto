@@ -1,5 +1,10 @@
 syntax = "proto2";
-package edu.duke.ece568.project.Protos;
+import "world_amazon.proto";
+
+package amazon;
+
+option java_package = "edu.duke.ece568.erss.amazon.proto";
+option java_outer_classname = "AmazonUPSProtocol";
 
 message AmazonToUPS {
   repeated int64 acks = 123;
