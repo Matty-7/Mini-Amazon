@@ -15,3 +15,7 @@ logs/
 
 # Docker
 *.log
+
+# Gradle
+.gradle/
+build/
