@@ -14,8 +14,8 @@ import static edu.duke.ece568.erss.amazon.Utils.recvMsgFrom;
 import static edu.duke.ece568.erss.amazon.Utils.sendMsgTo;
 
 public class MockUPS {
-    private static final String WORLD_HOST = "vcm-13663.vm.duke.edu";
-    private static final int    WORLD_PORT = 12345;
+    private static final String WORLD_HOST = "ece650-vm.colab.duke.edu";
+    private static final int    WORLD_PORT = 23456;
 
     private long worldId = -1;
     private int  nextTruck = 1;
