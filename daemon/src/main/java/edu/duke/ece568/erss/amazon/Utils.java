@@ -3,53 +3,45 @@ package edu.duke.ece568.erss.amazon;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.GeneratedMessageV3;
+import com.google.protobuf.Message;
 
-import java.io.*;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.IOException;
 
-public class Utils {
+public final class Utils {
 
-    /**
-     * This function will "send" the data(should follow Google Protocol Buffer) to corresponding output stream.
-     * You should handle the timeout by yourself.
-     * @param msg the message to be send
-     * @param out output stream
-     * @param <T> generic type of the data
-     * @return send result
-     */
-    public static <T extends GeneratedMessageV3> boolean sendMsgTo(T msg, OutputStream out) {
+    /** Encode + length-prefix a protobuf **message** and write it to the stream. */
+    public static boolean sendMsgTo(Message msg, OutputStream out) {
         try {
             byte[] data = msg.toByteArray();
-            CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(out);
-            codedOutputStream.writeUInt32NoTag(data.length);
-            codedOutputStream.writeRawBytes(data);
-            // NOTE!!! always flush the result to stream
-            codedOutputStream.flush();
+            CodedOutputStream cos = CodedOutputStream.newInstance(out);
+            cos.writeUInt32NoTag(data.length);   // length prefix
+            cos.writeRawBytes(data);
+            cos.flush();                         // always flush!
             return true;
         } catch (IOException e) {
-            System.err.println("sendToWorld: " + e.toString());
+            System.err.println("sendMsgTo: " + e);
             return false;
         }
     }
 
-    /**
-     * This function will only "read" the data from corresponding input stream.
-     * You should handle the sendToWorld back ask by yourself.
-     * @param response response(by reference)
-     * @param in       input stream
-     * @param <T>      generic type of the response
-     * @return true receive successful
-     */
-    public static <T extends GeneratedMessageV3.Builder<?>> boolean recvMsgFrom(T response, InputStream in) {
+    /** Read one length-prefixed protobuf message into the provided **Builder**. */
+    public static boolean recvMsgFrom(Message.Builder builder,
+                                      InputStream in) {
         try {
-            CodedInputStream codedInputStream = CodedInputStream.newInstance(in);
-            int len = codedInputStream.readRawVarint32();
-            int oldLimit = codedInputStream.pushLimit(len);
-            response.mergeFrom(codedInputStream);
-            codedInputStream.popLimit(oldLimit);
+            CodedInputStream cis = CodedInputStream.newInstance(in);
+            int len      = cis.readRawVarint32();
+            int oldLimit = cis.pushLimit(len);
+            builder.mergeFrom(cis);
+            cis.popLimit(oldLimit);
             return true;
         } catch (IOException e) {
-            System.err.println("recv: " + e.toString());
+            System.err.println("recvMsgFrom: " + e);
             return false;
         }
     }
+
+    // no instantiation
+    private Utils() {}
 }

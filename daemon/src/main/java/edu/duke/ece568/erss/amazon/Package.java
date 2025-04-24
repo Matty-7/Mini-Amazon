@@ -1,6 +1,7 @@
 package edu.duke.ece568.erss.amazon;
 
 import edu.duke.ece568.erss.amazon.proto.WorldAmazonProtocol.APack;
+import edu.duke.ece568.erss.amazon.proto.WorldAmazonProtocol.APurchaseMore;
 
 public class Package {
     public static final String PROCESSING = "processing";
@@ -76,6 +77,31 @@ public class Package {
 
     public String getUpsName() {
         return upsName;
+    }
+    
+    /**
+     * Get UPS user ID associated with this package
+     * @return the UPS user ID as a long (0 if none)
+     */
+    public long getUpsUserId() {
+        if (upsName == null || upsName.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Long.parseLong(upsName);
+        } catch (NumberFormatException e) {
+            // If the upsName is not a valid number, use a hash of the string
+            return Math.abs(upsName.hashCode());
+        }
+    }
+    
+    /**
+     * Check if this package matches the arrived purchase
+     * @param buy The purchase more message from World
+     * @return true if this package matches the arrived purchase
+     */
+    public boolean matchesArrival(APurchaseMore buy) {
+        return this.id == buy.getSeqnum() && this.whID == buy.getWhnum();
     }
 
     /**
