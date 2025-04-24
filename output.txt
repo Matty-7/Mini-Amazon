@@ -1,4 +1,243 @@
+=== PROJECT FILE STRUCTURE ===
+  |  |-__init__.py
+  |  |  |-__init__.cpython-313.pyc
+  |  |  |-__init__.py
+  |  |  |-__init__.py
+  |  |  |  |-__init__.cpython-313.pyc
+  |  |  |  |-world_amazon_1_pb2.cpython-313.pyc
+  |  |  |-amazon_ups_pb2.py
+  |  |  |-world_amazon_1_pb2.py
+  |  |  |-amazon_ups.proto
+  |  |  |-world_amazon-1.proto
+  |  |  |  |-world_client.cpython-313.pyc
+  |  |  |-inventory_service.py
+  |  |  |-ups_client.py
+  |  |  |-world_client.py
+  |  |  |  |-reliable_channel.cpython-313.pyc
+  |  |  |-reliable_channel.py
+  |-app.py
+  |-config.py
+  |-docker-compose.yml
+  |-Dockerfile
+  |-Makefile
+  |-output.txt
+  |-print_all.sh
+  |-project_spec-1.pdf
+  |  |-amazon_ups.proto
+  |  |-world_amazon-1.proto
+  |-pytest.ini
+  |-README.md
+  |-requirements.txt
+  |  |-compile_protos.sh
+  |-setup.py
+  |  |  |-test_world_client_extended.cpython-313-pytest-8.3.5.pyc
+  |  |-test_world_client_extended.py
+  |  |-test_world_client.py
+  |  |  |-docker-compose.yml
+  |  |  |-Dockerfile
+  |  |  |-server
+  |  |  |-wait-for-it.sh
+  |  |-README.md
+
+
 ./
+./protos/
+
+--- File: ./protos/amazon_ups.proto ---
+syntax = "proto2";
+package edu.duke.ece568.project.Protos;
+
+message AmazonToUPS {
+  repeated int64 acks = 123;
+  repeated RequestPickup request_pickup = 1;
+  repeated Redirect redirect = 2;
+  repeated Cancel cancel = 3;
+  repeated LoadReady load_ready = 4;
+}
+
+message UPSToAmazon {
+  repeated int64 acks = 123;
+  repeated PickupResp pickup_resp = 1;
+  repeated RedirectResp redirect_resp = 2;
+  repeated CancelResp cancel_resp = 3;
+  repeated TruckArrived truck_arrived = 4;
+  repeated DeliveryStarted delivery_started = 5;
+  repeated DeliveryComplete delivery_complete = 6;
+}
+
+message Coordinate {
+  required int32 x = 1;
+  required int32 y = 2;
+}
+
+message ItemInfo {
+  required string item_name = 1;
+  required int32 quantity = 2;
+}
+
+//Amazon to UPS
+message RequestPickup {
+  required int64 seqnum = 123;
+  required int64 ups_user_id = 1;
+  repeated ItemInfo items = 2;
+  required int64 order_id = 3;
+  required int32 warehouse_id = 4;
+  required Coordinate user_destination = 5;
+}
+
+message Redirect {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required Coordinate new_destination = 2;
+}
+
+message Cancel {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+}
+
+message LoadReady {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+}
+
+message ReturnAck {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+}
+
+// UPS to Amazon
+
+message PickupResp {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required int64 order_id = 2;
+  required int32 truck_id = 3;
+}
+
+
+message RedirectResp {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required bool success = 2;
+  required string reason = 3;
+}
+
+message CancelResp {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required bool success = 2;
+  required string reason = 3;
+}
+
+message TruckArrived {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+  required int32 truck_id = 2;
+  required int32 warehouse_id = 3;
+}
+
+message DeliveryStarted {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+}
+
+message DeliveryComplete {
+  required int64 seqnum = 123;
+  required int64 package_id = 1;
+}
+
+--- File: ./protos/world_amazon-1.proto ---
+syntax = "proto2";
+message AProduct{
+  required int64 id = 1;
+  required string description = 2;
+  required int32 count = 3;
+}
+
+message AInitWarehouse{
+  required int32 id = 1;
+  required int32 x = 2;
+  required int32 y = 3;
+}
+
+message AConnect{
+  optional int64 worldid = 1;
+  repeated AInitWarehouse initwh = 2;
+  required bool isAmazon = 3;
+}
+
+message AConnected{
+  required int64 worldid= 1;
+  required string result = 2;
+}
+
+message APack{
+  required int32 whnum = 1;
+  repeated AProduct things = 2;
+  required int64 shipid = 3;
+  required int64 seqnum = 4;
+}
+message APacked {
+  required int64 shipid = 1;
+  required int64 seqnum = 2;
+}
+
+message ALoaded{
+  required int64 shipid = 1;
+  required int64 seqnum = 2;
+}
+
+message APutOnTruck{
+  required int32 whnum = 1;
+  required int32 truckid = 2;
+  required int64 shipid = 3;
+  required int64 seqnum = 4;
+}
+
+message APurchaseMore{
+  required int32 whnum = 1;
+  repeated AProduct things = 2;
+  required int64 seqnum = 3;
+}
+
+message AErr{
+  required string err = 1;
+  required int64 originseqnum = 2;
+  required int64 seqnum = 3;
+}
+
+message AQuery{
+  required int64 packageid = 1;
+  required int64 seqnum = 2;
+}
+
+message APackage{
+  required int64 packageid =1;
+  required string status = 2;
+  required int64 seqnum = 3;
+}
+
+message ACommands {
+  repeated APurchaseMore buy = 1;
+  repeated APack topack = 2; 
+  repeated APutOnTruck load = 3;
+  repeated AQuery queries = 4;
+  optional uint32 simspeed = 5; 
+  optional bool disconnect = 6;
+  repeated int64 acks =7;
+}
+
+message AResponses {
+  repeated APurchaseMore arrived = 1;
+  repeated APacked ready = 2; 
+  repeated ALoaded loaded = 3; 
+  optional bool finished = 4;
+  repeated AErr error = 5;
+  repeated int64 acks = 6;
+  repeated APackage packagestatus = 7;
+}
+
 
 --- File: ./config.py ---
 import os
@@ -14,12 +253,26 @@ INITIAL_WAREHOUSES_DATA = [
 SIM_SPEED = int(os.getenv("SIM_SPEED", 1))
 
 ./test/
+./test/__pycache__/
 
 --- File: ./test/test_world_client.py ---
-from amazon_app.services.world_client import WorldClient
-import amazon_app.protocols.world_amazon_1_pb2 as wam
-import socket
+# Import pytest only when running through pytest, not when run directly
+try:
+    import pytest
+    pytestmark = pytest.mark.integration
+except ImportError:
+    pass  # Skip when run directly
+
+# Adjust path for direct script execution
 import sys
+import os
+# Add the project root directory to Python path when run directly
+if __name__ == "__main__":
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from amazon_app.services.world_client import WorldClient
+import amazon_app.pb_generated.world_amazon_1_pb2 as wam
+import socket
 import argparse
 import logging
 import queue
@@ -117,7 +370,7 @@ from typing import Tuple, List
 import pytest
 from google.protobuf.internal.encoder import _VarintBytes
 
-import amazon_app.protocols.world_amazon_1_pb2 as wam
+import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 from amazon_app.services.world_client import WorldClient
 
 
@@ -126,7 +379,7 @@ from amazon_app.services.world_client import WorldClient
 # --------------------------------------------------------------------------- #
 def frame(pb_msg) -> bytes:
     """Return the bytes <varint32 len><protobuf payload> exactly as the
-    World Simulator expects (same algorithm as ReliableChannel._frame)."""
+    World Simulator expects (same algorithm as ReliableChannel._frame)."""
     body: bytes = pb_msg.SerializeToString()
     return _VarintBytes(len(body)) + body
 
@@ -150,7 +403,7 @@ class DummySocket:
         self.recvq: "queue.Queue[bytes]" = queue.Queue()
         self._closed = False
 
-    # ----- tx/rx API -------------------------------------------------------- #
+    # ----- tx/rx API -------------------------------------------------------- #
     def sendall(self, data: bytes):
         self.sent.put(data)
         
@@ -206,14 +459,15 @@ def dummy_socket(monkeypatch) -> DummySocket:
 @pytest.fixture()
 def wc(dummy_socket) -> Tuple[WorldClient, DummySocket]:
     """Returns (world_client, dummy_socket)."""
-    return WorldClient("dummy", 12345), dummy_socket
+    response_queue = queue.Queue()
+    return WorldClient("dummy", 12345, response_queue), dummy_socket
 
 
 # --------------------------------------------------------------------------- #
 # Tests                                                                       #
 # --------------------------------------------------------------------------- #
 def _enqueue_handshake(sock: DummySocket, worldid: int = 1):
-    """Push an AConnected frame into the recv queue so that the very next
+    """Push an AConnected frame into the recv queue so that the very next
     wc.connect() call succeeds immediately."""
     connected = wam.AConnected(worldid=worldid, result="connected!")
     sock.recvq.put(frame(connected))
@@ -223,28 +477,28 @@ def test_full_buy_pack_load_query_cycle(wc):
     client, sock = wc
     _enqueue_handshake(sock)
 
-    # 1 CONNECT ------------------------------------------------------------- #
+    # 1 CONNECT ------------------------------------------------------------- #
     client.connect([wam.AInitWarehouse(id=1, x=3, y=4)])
 
-    # 2 BUY — immediately ACK it so retransmit queue is cleared ------------- #
+    # 2 BUY — immediately ACK it so retransmit queue is cleared ------------- #
     client.buy(1, [wam.AProduct(id=42, description="book", count=3)])
     sock.recvq.put(frame(wam.AResponses(acks=[1])))
 
-    # 3 PACK / LOAD --------------------------------------------------------- #
+    # 3 PACK / LOAD --------------------------------------------------------- #
     client.pack(1, [wam.AProduct(id=42, description="book", count=3)], shipid=888)
     client.load(1, truckid=5, shipid=888)
 
-    # 4 QUERY --------------------------------------------------------------- #
+    # 4 QUERY --------------------------------------------------------------- #
     client.query(packageid=888)
 
     # flush any protocol frames that went out
     frames = drain(sock.sent)
 
     # — at least four outbound frames:
-    #   • AConnect
-    #   • ACommands(BUY)
-    #   • ACommands(PACK + LOAD)  ← WorldClient batches pack+load separately
-    #   • ACommands(QUERY)
+    #   • AConnect
+    #   • ACommands(BUY)
+    #   • ACommands(PACK + LOAD)  ← WorldClient batches pack+load separately
+    #   • ACommands(QUERY)
     assert len(frames) >= 4
 
     # quick sanity‑check: first outbound frame *must* be an AConnect
@@ -289,9 +543,9 @@ Key properties
   thread feeds a thread‑safe queue for callers to `.recv()`.
 
 This refactor removes the earlier brittle `WhichOneof("")` call and aligns the
-pending‑ACK bookkeeping with the World Simulator’s contract: the server ACKs
-**child request** `seqnum`s – not some hidden transport ID – so we map every
-child’s `seqnum` to the raw frame for retransmission.
+pending‑ACK bookkeeping with the World Simulator's contract: the server ACKs
+**child request** `seqnum`s – not some hidden transport ID – so we map every
+child's `seqnum` to the raw frame for retransmission.
 """
 
 from __future__ import annotations
@@ -337,6 +591,10 @@ class ReliableChannel(Generic[T]):
     @property
     def remote(self):
         return self._sock.getpeername()
+        
+    @property
+    def closed(self) -> bool:
+        return self._shutdown.is_set()
 
     # ------------------------------------------------------------------
     # Public API
@@ -454,130 +712,14 @@ class ReliableChannel(Generic[T]):
                     logger.error("Retransmit failed: %s", exc)
                     self._shutdown.set()
                     break
-            interval = min(interval * 2, 4 * self.RETRY_INTERVAL_S)./amazon_app/models/
+            interval = min(interval * 2, 4 * self.RETRY_INTERVAL_S)
+./amazon_app/utils/__pycache__/
+./amazon_app/models/
+
+--- File: ./amazon_app/models/__init__.py ---
+# Models package 
+./amazon_app/__pycache__/
 ./amazon_app/protocols/
-
---- File: ./amazon_app/protocols/amazon_ups_pb2_grpc.py ---
-# Generated by the gRPC Python protocol compiler plugin. DO NOT EDIT!
-"""Client and server classes corresponding to protobuf-defined services."""
-import grpc
-import warnings
-
-
-GRPC_GENERATED_VERSION = '1.71.0'
-GRPC_VERSION = grpc.__version__
-_version_not_supported = False
-
-try:
-    from grpc._utilities import first_version_is_lower
-    _version_not_supported = first_version_is_lower(GRPC_VERSION, GRPC_GENERATED_VERSION)
-except ImportError:
-    _version_not_supported = True
-
-if _version_not_supported:
-    raise RuntimeError(
-        f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in amazon_ups_pb2_grpc.py depends on'
-        + f' grpcio>={GRPC_GENERATED_VERSION}.'
-        + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
-        + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
-    )
-
---- File: ./amazon_app/protocols/world_amazon_1_pb2_grpc.py ---
-# Generated by the gRPC Python protocol compiler plugin. DO NOT EDIT!
-"""Client and server classes corresponding to protobuf-defined services."""
-import grpc
-import warnings
-
-
-GRPC_GENERATED_VERSION = '1.71.0'
-GRPC_VERSION = grpc.__version__
-_version_not_supported = False
-
-try:
-    from grpc._utilities import first_version_is_lower
-    _version_not_supported = first_version_is_lower(GRPC_VERSION, GRPC_GENERATED_VERSION)
-except ImportError:
-    _version_not_supported = True
-
-if _version_not_supported:
-    raise RuntimeError(
-        f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in world_amazon_1_pb2_grpc.py depends on'
-        + f' grpcio>={GRPC_GENERATED_VERSION}.'
-        + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
-        + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
-    )
-
---- File: ./amazon_app/protocols/amazon_ups_pb2.py ---
-# -*- coding: utf-8 -*-
-# Generated by the protocol buffer compiler.  DO NOT EDIT!
-# NO CHECKED-IN PROTOBUF GENCODE
-# source: amazon_ups.proto
-# Protobuf Python Version: 5.29.0
-"""Generated protocol buffer code."""
-from google.protobuf import descriptor as _descriptor
-from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import runtime_version as _runtime_version
-from google.protobuf import symbol_database as _symbol_database
-from google.protobuf.internal import builder as _builder
-_runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC,
-    5,
-    29,
-    0,
-    '',
-    'amazon_ups.proto'
-)
-# @@protoc_insertion_point(imports)
-
-_sym_db = _symbol_database.Default()
-
-
-
-
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61mazon_ups.proto\x12\namazon.ups\"\"\n\nCoordinate\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x08ItemInfo\x12\x11\n\titem_name\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"\xc5\x01\n\x0b\x41mazonToUPS\x12\x0c\n\x04\x61\x63ks\x18| \x03(\x03\x12\x31\n\x0erequest_pickup\x18\x01 \x03(\x0b\x32\x19.amazon.ups.RequestPickup\x12&\n\x08redirect\x18\x02 \x03(\x0b\x32\x14.amazon.ups.Redirect\x12\"\n\x06\x63\x61ncel\x18\x03 \x03(\x0b\x32\x12.amazon.ups.Cancel\x12)\n\nload_ready\x18\x04 \x03(\x0b\x32\x15.amazon.ups.LoadReady\"\xf0\x02\n\x0bUPSToAmazon\x12\x0c\n\x04\x61\x63ks\x18| \x03(\x03\x12*\n\npickup_ack\x18\x01 \x03(\x0b\x32\x16.amazon.ups.PickupResp\x12.\n\x0credirect_ack\x18\x02 \x03(\x0b\x32\x18.amazon.ups.RedirectResp\x12*\n\ncancel_ack\x18\x03 \x03(\x0b\x32\x16.amazon.ups.CancelResp\x12/\n\rtruck_arrived\x18\x04 \x03(\x0b\x32\x18.amazon.ups.TruckArrived\x12\x35\n\x10\x64\x65livery_started\x18\x06 \x03(\x0b\x32\x1b.amazon.ups.DeliveryStarted\x12\x37\n\x11\x64\x65livery_complete\x18\x07 \x03(\x0b\x32\x1c.amazon.ups.DeliveryComplete\x12*\n\x0creturned_msg\x18\x08 \x03(\x0b\x32\x14.amazon.ups.Returned\"\xb3\x01\n\rRequestPickup\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x13\n\x0bups_user_id\x18\x01 \x01(\t\x12#\n\x05items\x18\x02 \x03(\x0b\x32\x14.amazon.ups.ItemInfo\x12\x10\n\x08order_id\x18\x03 \x01(\x03\x12\x14\n\x0cwarehouse_id\x18\x04 \x01(\x05\x12\x30\n\x10user_destination\x18\x05 \x01(\x0b\x32\x16.amazon.ups.Coordinate\"_\n\x08Redirect\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12/\n\x0fnew_destination\x18\x02 \x01(\x0b\x32\x16.amazon.ups.Coordinate\",\n\x06\x43\x61ncel\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"A\n\tLoadReady\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\"/\n\tReturnAck\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"T\n\nPickupResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08order_id\x18\x02 \x01(\x03\x12\x10\n\x08truck_id\x18\x03 \x01(\x05\"S\n\x0cRedirectResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0e\n\x06reason\x18\x03 \x01(\t\"Q\n\nCancelResp\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x0e\n\x06reason\x18\x03 \x01(\t\"Z\n\x0cTruckArrived\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x10\n\x08truck_id\x18\x02 \x01(\x05\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"5\n\x0f\x44\x65liveryStarted\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"6\n\x10\x44\x65liveryComplete\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\"D\n\x08Returned\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12\x14\n\x0cwarehouse_id\x18\x03 \x01(\x05\"b\n\x0fReturnDelivered\x12\x0e\n\x06seqnum\x18{ \x01(\x03\x12\x12\n\npackage_id\x18\x01 \x01(\x03\x12+\n\x0b\x64\x65stination\x18\x02 \x01(\x0b\x32\x16.amazon.ups.Coordinateb\x06proto3')
-
-_globals = globals()
-_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'amazon_ups_pb2', _globals)
-if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
-  _globals['_COORDINATE']._serialized_start=32
-  _globals['_COORDINATE']._serialized_end=66
-  _globals['_ITEMINFO']._serialized_start=68
-  _globals['_ITEMINFO']._serialized_end=115
-  _globals['_AMAZONTOUPS']._serialized_start=118
-  _globals['_AMAZONTOUPS']._serialized_end=315
-  _globals['_UPSTOAMAZON']._serialized_start=318
-  _globals['_UPSTOAMAZON']._serialized_end=686
-  _globals['_REQUESTPICKUP']._serialized_start=689
-  _globals['_REQUESTPICKUP']._serialized_end=868
-  _globals['_REDIRECT']._serialized_start=870
-  _globals['_REDIRECT']._serialized_end=965
-  _globals['_CANCEL']._serialized_start=967
-  _globals['_CANCEL']._serialized_end=1011
-  _globals['_LOADREADY']._serialized_start=1013
-  _globals['_LOADREADY']._serialized_end=1078
-  _globals['_RETURNACK']._serialized_start=1080
-  _globals['_RETURNACK']._serialized_end=1127
-  _globals['_PICKUPRESP']._serialized_start=1129
-  _globals['_PICKUPRESP']._serialized_end=1213
-  _globals['_REDIRECTRESP']._serialized_start=1215
-  _globals['_REDIRECTRESP']._serialized_end=1298
-  _globals['_CANCELRESP']._serialized_start=1300
-  _globals['_CANCELRESP']._serialized_end=1381
-  _globals['_TRUCKARRIVED']._serialized_start=1383
-  _globals['_TRUCKARRIVED']._serialized_end=1473
-  _globals['_DELIVERYSTARTED']._serialized_start=1475
-  _globals['_DELIVERYSTARTED']._serialized_end=1528
-  _globals['_DELIVERYCOMPLETE']._serialized_start=1530
-  _globals['_DELIVERYCOMPLETE']._serialized_end=1584
-  _globals['_RETURNED']._serialized_start=1586
-  _globals['_RETURNED']._serialized_end=1654
-  _globals['_RETURNDELIVERED']._serialized_start=1656
-  _globals['_RETURNDELIVERED']._serialized_end=1754
-# @@protoc_insertion_point(module_scope)
 
 --- File: ./amazon_app/protocols/amazon_ups.proto ---
 syntax = "proto2";
@@ -683,70 +825,6 @@ message DeliveryComplete {
   required int64 package_id = 1;
 }
 
---- File: ./amazon_app/protocols/world_amazon_1_pb2.py ---
-# -*- coding: utf-8 -*-
-# Generated by the protocol buffer compiler.  DO NOT EDIT!
-# NO CHECKED-IN PROTOBUF GENCODE
-# source: world_amazon-1.proto
-# Protobuf Python Version: 5.29.0
-"""Generated protocol buffer code."""
-from google.protobuf import descriptor as _descriptor
-from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import runtime_version as _runtime_version
-from google.protobuf import symbol_database as _symbol_database
-from google.protobuf.internal import builder as _builder
-_runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC,
-    5,
-    29,
-    0,
-    '',
-    'world_amazon-1.proto'
-)
-# @@protoc_insertion_point(imports)
-
-_sym_db = _symbol_database.Default()
-
-
-
-
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14world_amazon-1.proto\":\n\x08\x41Product\x12\n\n\x02id\x18\x01 \x02(\x03\x12\x13\n\x0b\x64\x65scription\x18\x02 \x02(\t\x12\r\n\x05\x63ount\x18\x03 \x02(\x05\"2\n\x0e\x41InitWarehouse\x12\n\n\x02id\x18\x01 \x02(\x05\x12\t\n\x01x\x18\x02 \x02(\x05\x12\t\n\x01y\x18\x03 \x02(\x05\"N\n\x08\x41\x43onnect\x12\x0f\n\x07worldid\x18\x01 \x01(\x03\x12\x1f\n\x06initwh\x18\x02 \x03(\x0b\x32\x0f.AInitWarehouse\x12\x10\n\x08isAmazon\x18\x03 \x02(\x08\"-\n\nAConnected\x12\x0f\n\x07worldid\x18\x01 \x02(\x03\x12\x0e\n\x06result\x18\x02 \x02(\t\"Q\n\x05\x41Pack\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x19\n\x06things\x18\x02 \x03(\x0b\x32\t.AProduct\x12\x0e\n\x06shipid\x18\x03 \x02(\x03\x12\x0e\n\x06seqnum\x18\x04 \x02(\x03\")\n\x07\x41Packed\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\")\n\x07\x41Loaded\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\"M\n\x0b\x41PutOnTruck\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x0f\n\x07truckid\x18\x02 \x02(\x05\x12\x0e\n\x06shipid\x18\x03 \x02(\x03\x12\x0e\n\x06seqnum\x18\x04 \x02(\x03\"I\n\rAPurchaseMore\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x19\n\x06things\x18\x02 \x03(\x0b\x32\t.AProduct\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"9\n\x04\x41\x45rr\x12\x0b\n\x03\x65rr\x18\x01 \x02(\t\x12\x14\n\x0coriginseqnum\x18\x02 \x02(\x03\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"+\n\x06\x41Query\x12\x11\n\tpackageid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\"=\n\x08\x41Package\x12\x11\n\tpackageid\x18\x01 \x02(\x03\x12\x0e\n\x06status\x18\x02 \x02(\t\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"\xaa\x01\n\tACommands\x12\x1b\n\x03\x62uy\x18\x01 \x03(\x0b\x32\x0e.APurchaseMore\x12\x16\n\x06topack\x18\x02 \x03(\x0b\x32\x06.APack\x12\x1a\n\x04load\x18\x03 \x03(\x0b\x32\x0c.APutOnTruck\x12\x18\n\x07queries\x18\x04 \x03(\x0b\x32\x07.AQuery\x12\x10\n\x08simspeed\x18\x05 \x01(\r\x12\x12\n\ndisconnect\x18\x06 \x01(\x08\x12\x0c\n\x04\x61\x63ks\x18\x07 \x03(\x03\"\xb8\x01\n\nAResponses\x12\x1f\n\x07\x61rrived\x18\x01 \x03(\x0b\x32\x0e.APurchaseMore\x12\x17\n\x05ready\x18\x02 \x03(\x0b\x32\x08.APacked\x12\x18\n\x06loaded\x18\x03 \x03(\x0b\x32\x08.ALoaded\x12\x10\n\x08\x66inished\x18\x04 \x01(\x08\x12\x14\n\x05\x65rror\x18\x05 \x03(\x0b\x32\x05.AErr\x12\x0c\n\x04\x61\x63ks\x18\x06 \x03(\x03\x12 \n\rpackagestatus\x18\x07 \x03(\x0b\x32\t.APackage')
-
-_globals = globals()
-_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'world_amazon_1_pb2', _globals)
-if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
-  _globals['_APRODUCT']._serialized_start=24
-  _globals['_APRODUCT']._serialized_end=82
-  _globals['_AINITWAREHOUSE']._serialized_start=84
-  _globals['_AINITWAREHOUSE']._serialized_end=134
-  _globals['_ACONNECT']._serialized_start=136
-  _globals['_ACONNECT']._serialized_end=214
-  _globals['_ACONNECTED']._serialized_start=216
-  _globals['_ACONNECTED']._serialized_end=261
-  _globals['_APACK']._serialized_start=263
-  _globals['_APACK']._serialized_end=344
-  _globals['_APACKED']._serialized_start=346
-  _globals['_APACKED']._serialized_end=387
-  _globals['_ALOADED']._serialized_start=389
-  _globals['_ALOADED']._serialized_end=430
-  _globals['_APUTONTRUCK']._serialized_start=432
-  _globals['_APUTONTRUCK']._serialized_end=509
-  _globals['_APURCHASEMORE']._serialized_start=511
-  _globals['_APURCHASEMORE']._serialized_end=584
-  _globals['_AERR']._serialized_start=586
-  _globals['_AERR']._serialized_end=643
-  _globals['_AQUERY']._serialized_start=645
-  _globals['_AQUERY']._serialized_end=688
-  _globals['_APACKAGE']._serialized_start=690
-  _globals['_APACKAGE']._serialized_end=751
-  _globals['_ACOMMANDS']._serialized_start=754
-  _globals['_ACOMMANDS']._serialized_end=924
-  _globals['_ARESPONSES']._serialized_start=927
-  _globals['_ARESPONSES']._serialized_end=1111
-# @@protoc_insertion_point(module_scope)
-
 --- File: ./amazon_app/protocols/world_amazon-1.proto ---
 syntax = "proto2";
 message AProduct{
@@ -838,6 +916,140 @@ message AResponses {
   repeated APackage packagestatus = 7;
 }
 
+./amazon_app/pb_generated/
+
+--- File: ./amazon_app/pb_generated/__init__.py ---
+./amazon_app/pb_generated/__pycache__/
+
+--- File: ./amazon_app/pb_generated/amazon_ups_pb2.py ---
+# -*- coding: utf-8 -*-
+# Generated by the protocol buffer compiler.  DO NOT EDIT!
+# NO CHECKED-IN PROTOBUF GENCODE
+# source: amazon_ups.proto
+# Protobuf Python Version: 5.29.0
+"""Generated protocol buffer code."""
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import descriptor_pool as _descriptor_pool
+from google.protobuf import runtime_version as _runtime_version
+from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
+_runtime_version.ValidateProtobufRuntimeVersion(
+    _runtime_version.Domain.PUBLIC,
+    5,
+    29,
+    0,
+    '',
+    'amazon_ups.proto'
+)
+# @@protoc_insertion_point(imports)
+
+_sym_db = _symbol_database.Default()
+
+
+
+
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61mazon_ups.proto\x12\x1e\x65\x64u.duke.ece568.project.Protos\"\x95\x02\n\x0b\x41mazonToUPS\x12\x0c\n\x04\x61\x63ks\x18{ \x03(\x03\x12\x45\n\x0erequest_pickup\x18\x01 \x03(\x0b\x32-.edu.duke.ece568.project.Protos.RequestPickup\x12:\n\x08redirect\x18\x02 \x03(\x0b\x32(.edu.duke.ece568.project.Protos.Redirect\x12\x36\n\x06\x63\x61ncel\x18\x03 \x03(\x0b\x32&.edu.duke.ece568.project.Protos.Cancel\x12=\n\nload_ready\x18\x04 \x03(\x0b\x32).edu.duke.ece568.project.Protos.LoadReady\"\xbf\x03\n\x0bUPSToAmazon\x12\x0c\n\x04\x61\x63ks\x18{ \x03(\x03\x12?\n\x0bpickup_resp\x18\x01 \x03(\x0b\x32*.edu.duke.ece568.project.Protos.PickupResp\x12\x43\n\rredirect_resp\x18\x02 \x03(\x0b\x32,.edu.duke.ece568.project.Protos.RedirectResp\x12?\n\x0b\x63\x61ncel_resp\x18\x03 \x03(\x0b\x32*.edu.duke.ece568.project.Protos.CancelResp\x12\x43\n\rtruck_arrived\x18\x04 \x03(\x0b\x32,.edu.duke.ece568.project.Protos.TruckArrived\x12I\n\x10\x64\x65livery_started\x18\x05 \x03(\x0b\x32/.edu.duke.ece568.project.Protos.DeliveryStarted\x12K\n\x11\x64\x65livery_complete\x18\x06 \x03(\x0b\x32\x30.edu.duke.ece568.project.Protos.DeliveryComplete\"\"\n\nCoordinate\x12\t\n\x01x\x18\x01 \x02(\x05\x12\t\n\x01y\x18\x02 \x02(\x05\"/\n\x08ItemInfo\x12\x11\n\titem_name\x18\x01 \x02(\t\x12\x10\n\x08quantity\x18\x02 \x02(\x05\"\xdb\x01\n\rRequestPickup\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x13\n\x0bups_user_id\x18\x01 \x02(\x03\x12\x37\n\x05items\x18\x02 \x03(\x0b\x32(.edu.duke.ece568.project.Protos.ItemInfo\x12\x10\n\x08order_id\x18\x03 \x02(\x03\x12\x14\n\x0cwarehouse_id\x18\x04 \x02(\x05\x12\x44\n\x10user_destination\x18\x05 \x02(\x0b\x32*.edu.duke.ece568.project.Protos.Coordinate\"s\n\x08Redirect\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\x12\x43\n\x0fnew_destination\x18\x02 \x02(\x0b\x32*.edu.duke.ece568.project.Protos.Coordinate\",\n\x06\x43\x61ncel\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\"/\n\tLoadReady\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\"/\n\tReturnAck\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\"T\n\nPickupResp\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\x12\x10\n\x08order_id\x18\x02 \x02(\x03\x12\x10\n\x08truck_id\x18\x03 \x02(\x05\"S\n\x0cRedirectResp\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x0e\n\x06reason\x18\x03 \x02(\t\"Q\n\nCancelResp\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\x12\x0f\n\x07success\x18\x02 \x02(\x08\x12\x0e\n\x06reason\x18\x03 \x02(\t\"Z\n\x0cTruckArrived\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\x12\x10\n\x08truck_id\x18\x02 \x02(\x05\x12\x14\n\x0cwarehouse_id\x18\x03 \x02(\x05\"5\n\x0f\x44\x65liveryStarted\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03\"6\n\x10\x44\x65liveryComplete\x12\x0e\n\x06seqnum\x18{ \x02(\x03\x12\x12\n\npackage_id\x18\x01 \x02(\x03')
+
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'amazon_ups_pb2', _globals)
+if not _descriptor._USE_C_DESCRIPTORS:
+  DESCRIPTOR._loaded_options = None
+  _globals['_AMAZONTOUPS']._serialized_start=53
+  _globals['_AMAZONTOUPS']._serialized_end=330
+  _globals['_UPSTOAMAZON']._serialized_start=333
+  _globals['_UPSTOAMAZON']._serialized_end=780
+  _globals['_COORDINATE']._serialized_start=782
+  _globals['_COORDINATE']._serialized_end=816
+  _globals['_ITEMINFO']._serialized_start=818
+  _globals['_ITEMINFO']._serialized_end=865
+  _globals['_REQUESTPICKUP']._serialized_start=868
+  _globals['_REQUESTPICKUP']._serialized_end=1087
+  _globals['_REDIRECT']._serialized_start=1089
+  _globals['_REDIRECT']._serialized_end=1204
+  _globals['_CANCEL']._serialized_start=1206
+  _globals['_CANCEL']._serialized_end=1250
+  _globals['_LOADREADY']._serialized_start=1252
+  _globals['_LOADREADY']._serialized_end=1299
+  _globals['_RETURNACK']._serialized_start=1301
+  _globals['_RETURNACK']._serialized_end=1348
+  _globals['_PICKUPRESP']._serialized_start=1350
+  _globals['_PICKUPRESP']._serialized_end=1434
+  _globals['_REDIRECTRESP']._serialized_start=1436
+  _globals['_REDIRECTRESP']._serialized_end=1519
+  _globals['_CANCELRESP']._serialized_start=1521
+  _globals['_CANCELRESP']._serialized_end=1602
+  _globals['_TRUCKARRIVED']._serialized_start=1604
+  _globals['_TRUCKARRIVED']._serialized_end=1694
+  _globals['_DELIVERYSTARTED']._serialized_start=1696
+  _globals['_DELIVERYSTARTED']._serialized_end=1749
+  _globals['_DELIVERYCOMPLETE']._serialized_start=1751
+  _globals['_DELIVERYCOMPLETE']._serialized_end=1805
+# @@protoc_insertion_point(module_scope)
+
+--- File: ./amazon_app/pb_generated/world_amazon_1_pb2.py ---
+# -*- coding: utf-8 -*-
+# Generated by the protocol buffer compiler.  DO NOT EDIT!
+# NO CHECKED-IN PROTOBUF GENCODE
+# source: world_amazon-1.proto
+# Protobuf Python Version: 5.29.0
+"""Generated protocol buffer code."""
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import descriptor_pool as _descriptor_pool
+from google.protobuf import runtime_version as _runtime_version
+from google.protobuf import symbol_database as _symbol_database
+from google.protobuf.internal import builder as _builder
+_runtime_version.ValidateProtobufRuntimeVersion(
+    _runtime_version.Domain.PUBLIC,
+    5,
+    29,
+    0,
+    '',
+    'world_amazon-1.proto'
+)
+# @@protoc_insertion_point(imports)
+
+_sym_db = _symbol_database.Default()
+
+
+
+
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14world_amazon-1.proto\":\n\x08\x41Product\x12\n\n\x02id\x18\x01 \x02(\x03\x12\x13\n\x0b\x64\x65scription\x18\x02 \x02(\t\x12\r\n\x05\x63ount\x18\x03 \x02(\x05\"2\n\x0e\x41InitWarehouse\x12\n\n\x02id\x18\x01 \x02(\x05\x12\t\n\x01x\x18\x02 \x02(\x05\x12\t\n\x01y\x18\x03 \x02(\x05\"N\n\x08\x41\x43onnect\x12\x0f\n\x07worldid\x18\x01 \x01(\x03\x12\x1f\n\x06initwh\x18\x02 \x03(\x0b\x32\x0f.AInitWarehouse\x12\x10\n\x08isAmazon\x18\x03 \x02(\x08\"-\n\nAConnected\x12\x0f\n\x07worldid\x18\x01 \x02(\x03\x12\x0e\n\x06result\x18\x02 \x02(\t\"Q\n\x05\x41Pack\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x19\n\x06things\x18\x02 \x03(\x0b\x32\t.AProduct\x12\x0e\n\x06shipid\x18\x03 \x02(\x03\x12\x0e\n\x06seqnum\x18\x04 \x02(\x03\")\n\x07\x41Packed\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\")\n\x07\x41Loaded\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\"M\n\x0b\x41PutOnTruck\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x0f\n\x07truckid\x18\x02 \x02(\x05\x12\x0e\n\x06shipid\x18\x03 \x02(\x03\x12\x0e\n\x06seqnum\x18\x04 \x02(\x03\"I\n\rAPurchaseMore\x12\r\n\x05whnum\x18\x01 \x02(\x05\x12\x19\n\x06things\x18\x02 \x03(\x0b\x32\t.AProduct\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"9\n\x04\x41\x45rr\x12\x0b\n\x03\x65rr\x18\x01 \x02(\t\x12\x14\n\x0coriginseqnum\x18\x02 \x02(\x03\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"+\n\x06\x41Query\x12\x11\n\tpackageid\x18\x01 \x02(\x03\x12\x0e\n\x06seqnum\x18\x02 \x02(\x03\"=\n\x08\x41Package\x12\x11\n\tpackageid\x18\x01 \x02(\x03\x12\x0e\n\x06status\x18\x02 \x02(\t\x12\x0e\n\x06seqnum\x18\x03 \x02(\x03\"\xaa\x01\n\tACommands\x12\x1b\n\x03\x62uy\x18\x01 \x03(\x0b\x32\x0e.APurchaseMore\x12\x16\n\x06topack\x18\x02 \x03(\x0b\x32\x06.APack\x12\x1a\n\x04load\x18\x03 \x03(\x0b\x32\x0c.APutOnTruck\x12\x18\n\x07queries\x18\x04 \x03(\x0b\x32\x07.AQuery\x12\x10\n\x08simspeed\x18\x05 \x01(\r\x12\x12\n\ndisconnect\x18\x06 \x01(\x08\x12\x0c\n\x04\x61\x63ks\x18\x07 \x03(\x03\"\xb8\x01\n\nAResponses\x12\x1f\n\x07\x61rrived\x18\x01 \x03(\x0b\x32\x0e.APurchaseMore\x12\x17\n\x05ready\x18\x02 \x03(\x0b\x32\x08.APacked\x12\x18\n\x06loaded\x18\x03 \x03(\x0b\x32\x08.ALoaded\x12\x10\n\x08\x66inished\x18\x04 \x01(\x08\x12\x14\n\x05\x65rror\x18\x05 \x03(\x0b\x32\x05.AErr\x12\x0c\n\x04\x61\x63ks\x18\x06 \x03(\x03\x12 \n\rpackagestatus\x18\x07 \x03(\x0b\x32\t.APackage')
+
+_globals = globals()
+_builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'world_amazon_1_pb2', _globals)
+if not _descriptor._USE_C_DESCRIPTORS:
+  DESCRIPTOR._loaded_options = None
+  _globals['_APRODUCT']._serialized_start=24
+  _globals['_APRODUCT']._serialized_end=82
+  _globals['_AINITWAREHOUSE']._serialized_start=84
+  _globals['_AINITWAREHOUSE']._serialized_end=134
+  _globals['_ACONNECT']._serialized_start=136
+  _globals['_ACONNECT']._serialized_end=214
+  _globals['_ACONNECTED']._serialized_start=216
+  _globals['_ACONNECTED']._serialized_end=261
+  _globals['_APACK']._serialized_start=263
+  _globals['_APACK']._serialized_end=344
+  _globals['_APACKED']._serialized_start=346
+  _globals['_APACKED']._serialized_end=387
+  _globals['_ALOADED']._serialized_start=389
+  _globals['_ALOADED']._serialized_end=430
+  _globals['_APUTONTRUCK']._serialized_start=432
+  _globals['_APUTONTRUCK']._serialized_end=509
+  _globals['_APURCHASEMORE']._serialized_start=511
+  _globals['_APURCHASEMORE']._serialized_end=584
+  _globals['_AERR']._serialized_start=586
+  _globals['_AERR']._serialized_end=643
+  _globals['_AQUERY']._serialized_start=645
+  _globals['_AQUERY']._serialized_end=688
+  _globals['_APACKAGE']._serialized_start=690
+  _globals['_APACKAGE']._serialized_end=751
+  _globals['_ACOMMANDS']._serialized_start=754
+  _globals['_ACOMMANDS']._serialized_end=924
+  _globals['_ARESPONSES']._serialized_start=927
+  _globals['_ARESPONSES']._serialized_end=1111
+# @@protoc_insertion_point(module_scope)
 ./amazon_app/services/
 
 --- File: ./amazon_app/services/inventory_service.py ---
@@ -958,6 +1170,7 @@ class InventoryService:
         ]
         if order.index(new_status) > order.index(cur):
             ship.status = new_status.value
+./amazon_app/services/__pycache__/
 
 --- File: ./amazon_app/services/ups_client.py ---
 
@@ -967,7 +1180,7 @@ import logging
 import threading
 import queue
 from typing import List, Optional
-import amazon_app.protocols.world_amazon_1_pb2 as wam
+import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 from amazon_app.utils.reliable_channel import ChannelClosed, ReliableChannel
 
 logger = logging.getLogger(__name__)
@@ -1160,7 +1373,7 @@ class WorldClient:
         logger.info("Shutting down WorldClient connection...")
         self._running = False
         try:
-            if not self._chan.is_closed():
+            if not self._chan.closed:
                  cmd = wam.ACommands(disconnect=True)
                  pending = self._chan.pending_acks()
                  if pending:
@@ -1174,6 +1387,7 @@ class WorldClient:
         finally:
             self._chan.close()
             logger.info("WorldClient connection closed.")
+
 --- File: ./setup.py ---
 from setuptools import setup, find_packages
 
@@ -1203,7 +1417,7 @@ try:
     from amazon_app.services.world_client import WorldClient
     # Adjust import based on your actual protobuf file location/name
     # Example: from amazon_app.protocols import world_amazon_1_pb2 as wam
-    import amazon_app.protocols.world_amazon_1_pb2 as wam
+    import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 except ImportError as e:
     print(f"Error importing modules: {e}. Ensure config.py, world_client.py, "
           "and the protobuf definitions exist and are importable.")
@@ -1502,133 +1716,6 @@ if __name__ == '__main__':
     world_client.shutdown() # Gracefully disconnect from world sim
     # Optionally wait for the response thread?
     # response_queue.join() # Wait for queue to be empty (might block indefinitely if worker died)
-    logger.info("Application shutdown complete.")./templates/
-./.git/
-./.git/objects/
-./.git/objects/61/
-./.git/objects/92/
-./.git/objects/3e/
-./.git/objects/50/
-./.git/objects/03/
-./.git/objects/35/
-./.git/objects/0b/
-./.git/objects/34/
-./.git/objects/5a/
-./.git/objects/5f/
-./.git/objects/05/
-./.git/objects/a4/
-./.git/objects/b5/
-./.git/objects/b2/
-./.git/objects/ac/
-./.git/objects/d0/
-./.git/objects/da/
-./.git/objects/b4/
-./.git/objects/a2/
-./.git/objects/a5/
-./.git/objects/d1/
-./.git/objects/bc/
-./.git/objects/ab/
-./.git/objects/f3/
-./.git/objects/c0/
-./.git/objects/c9/
-./.git/objects/fd/
-./.git/objects/f2/
-./.git/objects/e3/
-./.git/objects/e4/
-./.git/objects/fb/
-./.git/objects/c1/
-./.git/objects/c6/
-./.git/objects/4e/
-./.git/objects/18/
-./.git/objects/pack/
-./.git/objects/7c/
-./.git/objects/89/
-./.git/objects/1f/
-./.git/objects/80/
-./.git/objects/74/
-./.git/objects/1a/
-./.git/objects/17/
-./.git/objects/7b/
-./.git/objects/8f/
-./.git/objects/10/
-./.git/objects/19/
-./.git/objects/4c/
-./.git/objects/21/
-./.git/objects/86/
-./.git/objects/72/
-./.git/objects/44/
-./.git/objects/2a/
-./.git/objects/43/
-./.git/objects/88/
-./.git/objects/07/
-./.git/objects/38/
-./.git/objects/6e/
-./.git/objects/36/
-./.git/objects/5c/
-./.git/objects/5d/
-./.git/objects/31/
-./.git/objects/info/
-./.git/objects/91/
-./.git/objects/65/
-./.git/objects/54/
-./.git/objects/98/
-./.git/objects/53/
-./.git/objects/3f/
-./.git/objects/5e/
-./.git/objects/37/
-./.git/objects/08/
-./.git/objects/6d/
-./.git/objects/06/
-./.git/objects/6c/
-./.git/objects/39/
-./.git/objects/99/
-./.git/objects/52/
-./.git/objects/63/
-./.git/objects/0f/
-./.git/objects/0a/
-./.git/objects/ba/
-./.git/objects/d2/
-./.git/objects/db/
-./.git/objects/a8/
-./.git/objects/a6/
-./.git/objects/b9/
-./.git/objects/a1/
-./.git/objects/ef/
-./.git/objects/c3/
-./.git/objects/cc/
-./.git/objects/e6/
-./.git/objects/c2/
-./.git/objects/cb/
-./.git/objects/ce/
-./.git/objects/79/
-./.git/objects/2d/
-./.git/objects/41/
-./.git/objects/77/
-./.git/objects/1e/
-./.git/objects/84/
-./.git/objects/4f/
-./.git/objects/8d/
-./.git/objects/8c/
-./.git/objects/71/
-./.git/objects/76/
-./.git/objects/40/
-./.git/objects/2e/
-./.git/objects/2b/
-./.git/objects/13/
-./.git/objects/7a/
-./.git/objects/8e/
-./.git/objects/25/
-./.git/info/
-./.git/logs/
-./.git/logs/refs/
-./.git/logs/refs/heads/
-./.git/logs/refs/remotes/
-./.git/logs/refs/remotes/github/
-./.git/logs/refs/remotes/origin/
-./.git/hooks/
-./.git/refs/
-./.git/refs/heads/
-./.git/refs/tags/
-./.git/refs/remotes/
-./.git/refs/remotes/github/
-./.git/refs/remotes/origin/
+    logger.info("Application shutdown complete.")
+./templates/
+./venv/

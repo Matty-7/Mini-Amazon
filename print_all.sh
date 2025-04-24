@@ -18,6 +18,6 @@ while IFS= read -r -d '' path; do
       cat "$path" >> "$output_file"
     fi
   fi
-done < <(find . -print0)
+done < <(find . -not -path "*/\.*" -not -path "*/venv/*" -print0)
 
 echo "Saved to $output_file"
