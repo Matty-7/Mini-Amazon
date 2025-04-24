@@ -12,9 +12,9 @@ Key properties
   thread feeds a thread‑safe queue for callers to `.recv()`.
 
 This refactor removes the earlier brittle `WhichOneof("")` call and aligns the
-pending‑ACK bookkeeping with the World Simulator’s contract: the server ACKs
-**child request** `seqnum`s – not some hidden transport ID – so we map every
-child’s `seqnum` to the raw frame for retransmission.
+pending‑ACK bookkeeping with the World Simulator's contract: the server ACKs
+**child request** `seqnum`s – not some hidden transport ID – so we map every
+child's `seqnum` to the raw frame for retransmission.
 """
 
 from __future__ import annotations
@@ -60,6 +60,10 @@ class ReliableChannel(Generic[T]):
     @property
     def remote(self):
         return self._sock.getpeername()
+        
+    @property
+    def closed(self) -> bool:
+        return self._shutdown.is_set()
 
     # ------------------------------------------------------------------
     # Public API

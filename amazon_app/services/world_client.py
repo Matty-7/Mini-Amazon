@@ -3,7 +3,7 @@ import logging
 import threading
 import queue
 from typing import List, Optional
-import amazon_app.protocols.world_amazon_1_pb2 as wam
+import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 from amazon_app.utils.reliable_channel import ChannelClosed, ReliableChannel
 
 logger = logging.getLogger(__name__)
@@ -196,7 +196,7 @@ class WorldClient:
         logger.info("Shutting down WorldClient connection...")
         self._running = False
         try:
-            if not self._chan.is_closed():
+            if not self._chan.closed:
                  cmd = wam.ACommands(disconnect=True)
                  pending = self._chan.pending_acks()
                  if pending:

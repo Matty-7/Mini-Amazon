@@ -19,7 +19,7 @@ from typing import Tuple, List
 import pytest
 from google.protobuf.internal.encoder import _VarintBytes
 
-import amazon_app.protocols.world_amazon_1_pb2 as wam
+import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 from amazon_app.services.world_client import WorldClient
 
 
@@ -28,7 +28,7 @@ from amazon_app.services.world_client import WorldClient
 # --------------------------------------------------------------------------- #
 def frame(pb_msg) -> bytes:
     """Return the bytes <varint32 len><protobuf payload> exactly as the
-    World Simulator expects (same algorithm as ReliableChannel._frame)."""
+    World Simulator expects (same algorithm as ReliableChannel._frame)."""
     body: bytes = pb_msg.SerializeToString()
     return _VarintBytes(len(body)) + body
 
@@ -52,7 +52,7 @@ class DummySocket:
         self.recvq: "queue.Queue[bytes]" = queue.Queue()
         self._closed = False
 
-    # ----- tx/rx API -------------------------------------------------------- #
+    # ----- tx/rx API -------------------------------------------------------- #
     def sendall(self, data: bytes):
         self.sent.put(data)
         
@@ -108,14 +108,15 @@ def dummy_socket(monkeypatch) -> DummySocket:
 @pytest.fixture()
 def wc(dummy_socket) -> Tuple[WorldClient, DummySocket]:
     """Returns (world_client, dummy_socket)."""
-    return WorldClient("dummy", 12345), dummy_socket
+    response_queue = queue.Queue()
+    return WorldClient("dummy", 12345, response_queue), dummy_socket
 
 
 # --------------------------------------------------------------------------- #
 # Tests                                                                       #
 # --------------------------------------------------------------------------- #
 def _enqueue_handshake(sock: DummySocket, worldid: int = 1):
-    """Push an AConnected frame into the recv queue so that the very next
+    """Push an AConnected frame into the recv queue so that the very next
     wc.connect() call succeeds immediately."""
     connected = wam.AConnected(worldid=worldid, result="connected!")
     sock.recvq.put(frame(connected))
@@ -125,28 +126,28 @@ def test_full_buy_pack_load_query_cycle(wc):
     client, sock = wc
     _enqueue_handshake(sock)
 
-    # 1 CONNECT ------------------------------------------------------------- #
+    # 1 CONNECT ------------------------------------------------------------- #
     client.connect([wam.AInitWarehouse(id=1, x=3, y=4)])
 
-    # 2 BUY — immediately ACK it so retransmit queue is cleared ------------- #
+    # 2 BUY — immediately ACK it so retransmit queue is cleared ------------- #
     client.buy(1, [wam.AProduct(id=42, description="book", count=3)])
     sock.recvq.put(frame(wam.AResponses(acks=[1])))
 
-    # 3 PACK / LOAD --------------------------------------------------------- #
+    # 3 PACK / LOAD --------------------------------------------------------- #
     client.pack(1, [wam.AProduct(id=42, description="book", count=3)], shipid=888)
     client.load(1, truckid=5, shipid=888)
 
-    # 4 QUERY --------------------------------------------------------------- #
+    # 4 QUERY --------------------------------------------------------------- #
     client.query(packageid=888)
 
     # flush any protocol frames that went out
     frames = drain(sock.sent)
 
     # — at least four outbound frames:
-    #   • AConnect
-    #   • ACommands(BUY)
-    #   • ACommands(PACK + LOAD)  ← WorldClient batches pack+load separately
-    #   • ACommands(QUERY)
+    #   • AConnect
+    #   • ACommands(BUY)
+    #   • ACommands(PACK + LOAD)  ← WorldClient batches pack+load separately
+    #   • ACommands(QUERY)
     assert len(frames) >= 4
 
     # quick sanity‑check: first outbound frame *must* be an AConnect

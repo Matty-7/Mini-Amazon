@@ -1,5 +1,8 @@
+import pytest
+pytestmark = pytest.mark.integration
+
 from amazon_app.services.world_client import WorldClient
-import amazon_app.protocols.world_amazon_1_pb2 as wam
+import amazon_app.pb_generated.world_amazon_1_pb2 as wam
 import socket
 import sys
 import argparse
