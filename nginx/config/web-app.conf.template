@@ -9,5 +9,5 @@ server {
         proxy_pass http://web/;
   }
   listen 8000;
-  server_name vcm-2182.vm.duke.edu;
-}
+  server_name ${SERVER_NAME};
+} 
