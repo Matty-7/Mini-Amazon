@@ -1,0 +1,81 @@
+{% extends "amazon/base.html" %}
+{% block content %}
+    <h3>&nbsp;&nbsp;Your Orders</h3>
+    <br>
+    <div class="content-section">
+        {% if package_list %}
+            <!--search-bar-->
+            <form method="POST">
+                {% csrf_token %}
+                <div class="input-group p-2 col-md-8 offset-2 bg-light rounded rounded-pill shadow-sm mt-4 searchbar">
+                    <input name="search" type="search" placeholder="Which order are you looking for"
+                           class="form-control border-0 bg-light" style="outline: none; border: 0;box-shadow: none">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-link text-primary">
+                            <!-- search icon -->
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            <br>
+
+            <!--order-list-->
+            <div class="table-responsive mt-4 table-hover">
+                <table class="table">
+                    <thead>
+                    <tr class="row text-center">
+                        <!-- thumbnail -->
+                        <th class="col-1">#</th>
+                        <th class="col-5">Items</th>
+                        <th class="col-1">Price</th>
+                        <th class="col-2">Creation Time</th>
+                        <th class="col-1">Status</th>
+                        <th class="col-2">Tracking Number</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for pack in package_list %}
+                        <tr class="row text-center">
+                            <td class="col-1 align-self-center border-top-0">{{ forloop.counter }}</td>
+                            <td class="col-5 align-self-center border-top-0 text-left">
+                                {% for key, value in item_dict.items %}
+                                    {% if key is pack.id %}
+                                        {% for order in value %}
+                                            {% if forloop.counter < 4 %}
+                                                <img class="img-thumbnail" style="width: 50px; height: 50px"
+                                                     src="{{ order.item.img }}">
+                                                <span style="font-size:14.5px;">{{ order.item.description }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td class="col-1 align-self-center border-top-0">
+                                &dollar;{{ pack.total_fixed|floatformat:2 }}</td>
+                            <td class="col-2 align-self-center border-top-0">{{ pack.creation_time|date:"F d, Y" }}</td>
+                            <td class="col-1 align-self-center border-top-0">{{ pack.status }}</td>
+                            <td class="col-2 align-self-center border-top-0">{{ pack.id }}</td>
+                        </tr>
+                        <tr class="row border-bottom">
+                            <td class="col-10 border-top-0"></td>
+                            <td class="col-1 border-top-0">
+                                <a href="/listpackage/{{ pack.id }}/" class="btn btn-outline-info">Detail</a>
+                            </td>
+                            <td class="col-1 border-top-0">
+                                <a href="{% url 'delete-package' pack.id %}"
+                                   class="btn btn-outline-secondary">Delete</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <h4 class="m-4">No order found,
+                <a href="{% url 'home' %}">buy something TODAY!</a>
+            </h4>
+        {% endif %}
+    </div>
+
+{% endblock content %}

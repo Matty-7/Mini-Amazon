@@ -1,0 +1,63 @@
+syntax = "proto2";
+import "world_amazon.proto";
+
+package amazon;
+
+option java_package = "edu.duke.ece568.erss.amazon.proto";
+option java_outer_classname = "AmazonUPSProtocol";
+ 
+message UAcommand{
+   repeated UApicked pick = 2;
+   repeated UAdelivered deliver = 3;
+}
+ 
+message Err{
+   optional string errorInfo = 1;
+   required int64 originseqnum = 2;
+}
+ 
+message Res{
+   repeated int64 ack = 1;
+   repeated Err err = 2;
+}
+ 
+message UApicked{
+   required int64 seqnum = 1;
+   required int64 shipid = 2;
+   required int32 truckid = 3;
+   optional Err err = 4;
+}
+ 
+message UAdelivered{
+   required int64 seqnum = 1;
+   required int64 shipid = 2;
+   optional Err err = 4;
+   optional int32 dest_x = 5;
+   optional int32 dest_y = 6;   
+}
+ 
+message UAstart{
+   required int32 worldid = 1;
+   required int64 seqnum = 2;
+} 
+ 
+message AUcommand{
+   repeated AUpick pick = 1;
+   repeated AUdeliver deliver = 2;
+}
+ 
+message AUpick{
+   required APack package = 1;
+   optional string ups_user_name = 2;
+   required int64 seqnum = 4;
+   required AInitWarehouse wh = 5;
+   required int32 x = 6;
+   required int32 y = 7;
+ 
+}
+ 
+message AUdeliver{
+   required APack package = 1;
+   required int64 seqnum = 4;
+   optional Err err = 5;
+}

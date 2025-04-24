@@ -1,0 +1,76 @@
+{% extends "amazon/base.html" %}
+{% block content %}
+    <div class="col-md-11 row">
+        <a href="/listpackage/" style="font-size:18px;">&nbsp;&nbsp;&nbsp;Your Orders >>&nbsp;</a>
+        <p style="font-size:18px;">Order Details</p>
+    </div>
+
+    <!--order info-->
+    <div class="content-section">
+        <h4 style="margin-top: 16px">&nbsp;&nbsp;Order Info</h4>
+        <br>
+        <div class="row ">
+            <div class="col-2 text-center ">
+                <h4 style="font-size:16px; margin-bottom: 7px;">Order Status</h4>
+                <p style=" font-size:15px; ">{{ pack.status|title }}</p>
+            </div>
+            <div class="col-4 text-center">
+                <h4 style="font-size:16px; margin-bottom: 7px;">Order Time</h4>
+                <p style="font-size:15px; ">{{ pack.creation_time }}</p>
+            </div>
+            <div class="col-2 text-center">
+                <h5 style="font-size:16px; margin-bottom: 7px;">Shipping Address</h5>
+                <p style="font-size:15px; "> ({{ pack.dest_x }}, {{ pack.dest_y }})</p>
+            </div>
+            <div class="col-2 text-center">
+                <h5 style="font-size:16px; margin-bottom: 7px;">Tracking Number</h5>
+                <p style="font-size:15px; ">{{ pack.id }}</p>
+            </div>
+            <div class="col-2 text-center">
+                <h4 style="font-size:16px; margin-bottom: 7px;">Total Price</h4>
+                <p style="font-size:15px; ">&dollar;{{ pack.total|floatformat:2 }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!--item details-->
+    <div class="content-section table-responsive border-bottom table-hover">
+        <br>
+        <h4>&nbsp;&nbsp;Item Details</h4>
+        <br>
+        {% if product_list %}
+            <table class="table">
+                <thead>
+                <tr class="row text-center">
+                    <th class="col-2">#</th>
+                    <th class="col-6">Item</th>
+                    <th class="col-2">Count</th>
+                    <th class="col-2">Total Price</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for prod in product_list %}
+                    <tr class="row align-items-center table-borderless">
+                        <td class="col-2 text-center">{{ forloop.counter }}</td>
+                        <td class="col-3 text-center">
+                            <img class="img-thumbnail" style="width: 120px; height: 120px" src="{{ prod.item.img }}">
+                        </td>
+                        <td class="col-3 text-center">
+                            <p style="font-size:17px;">{{ prod.item.description }}</p>
+                            <p style="color:#aeb3b9; font-size:15px; margin-bottom: 10px;">
+                                &dollar; {{ prod.item.price|floatformat:2 }} each</p>
+                        </td>
+                        <td class="col-2 text-center">{{ prod.item_cnt }}</td>
+                        <td class="col-2 text-center">&dollar; {{ prod.total|floatformat:2 }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+
+        <div class="col-3 offset-9 text-right mt-4 mb-4">
+            <b>Total(all items): </b><span style="color: #080000">&dollar;{{ pack.total|floatformat:2 }}</span>
+        </div>
+
+    </div>
+{% endblock content %}

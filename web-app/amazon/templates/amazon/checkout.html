@@ -1,0 +1,142 @@
+{% extends "amazon/base.html" %}
+{% block content %}
+    <h1>Checkout</h1>
+    <div class="row">
+        <div class="col-md-8 order-md-1">
+            <form class="needs-validation" novalidate action="{% url "checkout" package.id %}" method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="ups_name">UPS Account Name <span class="text-muted">(Optional)</span></label>
+                    <input type="text" class="form-control" id="ups_name" name="ups_name" placeholder="admin"
+                           value=
+                                   {% if user.profile.ups_name %}
+                                       {{ user.profile.ups_name }}
+                                   {% else %}
+                                       ""
+                                   {% endif %}>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="ups" name="checkbox"
+                               id="checkbox_ups_name" checked>
+                        <label class="form-check-label" for="checkbox_ups_name">save to profile</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="address">Address</label>
+                    <div class="row">
+                        <div class="input-group col-md-6">
+                            <div class="input-group-prepend">
+                                <label for="x" class="input-group-text">X: </label>
+                            </div>
+                            <input type="number" min=0 max=150 class="form-control" name="x" placeholder="x coordinate"
+                                   id="x" required value=
+                                           {% if user.profile.default_x != -1 %}
+                                               {{ user.profile.default_x }}
+                                           {% endif %}>
+                            <div class="invalid-feedback" style="width: 100%;">
+                                X value is required.
+                            </div>
+                        </div>
+
+                        <div class="input-group col-md-6">
+                            <div class="input-group-prepend">
+                                <label for="y" class="input-group-text">Y: </label>
+                            </div>
+                            <input type="number" min=0 max=150 class="form-control" id="y" name="y"
+                                   placeholder="y coordinate" required value=
+                                           {% if user.profile.default_y != -1 %}
+                                               {{ user.profile.default_y }}
+                                           {% endif %}>
+                            <div class="invalid-feedback" style="width: 100%;">
+                                Y value is required.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="address" name="checkbox"
+                               id="checkbox_address" checked>
+                        <label class="form-check-label" for="checkbox_address">save to profile</label>
+                    </div>
+                </div>
+
+                <hr class="mb-4">
+
+                <h4 class="mb-3">Payment</h4>
+
+                <div class="d-block my-3">
+                    <div class="custom-control custom-radio">
+                        <input id="credit" name="paymentMethod" type="radio" class="custom-control-input" checked=""
+                               required>
+                        <label class="custom-control-label" for="credit">Credit card</label>
+                    </div>
+                    <div class="custom-control custom-radio">
+                        <input id="debit" name="paymentMethod" type="radio" class="custom-control-input" required>
+                        <label class="custom-control-label" for="debit">Debit card</label>
+                    </div>
+                    <div class="custom-control custom-radio">
+                        <input id="paypal" name="paymentMethod" type="radio" class="custom-control-input" required>
+                        <label class="custom-control-label" for="paypal">PayPal</label>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="cc-name">Name on card</label>
+                        <input type="text" class="form-control" id="cc-name" placeholder="" required="" value="ece568">
+                        <small class="text-muted">Full name as displayed on card</small>
+                        <div class="invalid-feedback">
+                            Name on card is required
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="cc-number">Credit card number</label>
+                        <input type="text" class="form-control" id="cc-number" placeholder="" required="" value="12345">
+                        <div class="invalid-feedback">
+                            Credit card number is required
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="cc-expiration">Expiration</label>
+                        <input type="text" class="form-control" id="cc-expiration" placeholder="" required=""
+                               value="08/23">
+                        <div class="invalid-feedback">
+                            Expiration date required
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="cc-cvv">CVV</label>
+                        <input type="text" class="form-control" id="cc-cvv" placeholder="" required="" value="123">
+                        <div class="invalid-feedback">
+                            Security code required
+                        </div>
+                    </div>
+                </div>
+                <hr class="mb-4">
+                <button class="btn btn-primary btn-lg btn-block" type="submit">Place your order</button>
+            </form>
+        </div>
+
+        <!-- side bar, show package info -->
+        <div class="col-md-4 order-md-2">
+            <ul class="list-group mb-3">
+                {% for my_order in package.orders.all %}
+                    <li class="list-group-item d-flex justify-content-between lh-condensed">
+                        <div>
+                            <h6 class="my-0">{{ my_order.item.description }}</h6>
+                            <small class="text-muted">Qty: {{ my_order.item_cnt }}</small>
+                            <small class="text-muted">Price: &dollar; {{ my_order.item_price|floatformat:2 }}</small>
+                        </div>
+                        <span class="text-muted">&dollar; {{ my_order.total|floatformat:2 }}</span>
+                    </li>
+                {% endfor %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total (USD)</span>
+                    <strong>&dollar; {{ total|floatformat:2 }}</strong>
+                </li>
+            </ul>
+        </div>
+    </div>
+{% endblock content %}
+

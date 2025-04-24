@@ -1,0 +1,18 @@
+{% extends "amazon/base.html" %}
+{% block content %}
+    <!-- success page, show success info -->
+    {% if is_add_cart %}
+        <h1>{{ info }}</h1>
+        <h2 class="mt-4"><a href="{% url "shop_cart" %}">My cart</a></h2>
+    {% elif is_checkout %}
+        <h1>{{ info }}</h1>
+        <h2 class="mt-4"><a href="{% url "list-package" %}">My order</a></h2>
+    {% elif is_add_item %}
+        <h1>{{ info }}</h1>
+        <h2 class="mt-4"><a href="{% url "add_update_item" "-1" %}">Add more</a></h2>
+        <h2 class="mt-4"><a href="{% url "item_management" %}">Go to my selling page</a></h2>
+    {% else %}
+        <h1>Succeed!</h1>
+    {% endif %}
+    <h2 class="mt-4"><a href="{% url "home" %}">Buy more</a></h2>
+{% endblock content %}

@@ -1,0 +1,159 @@
+{% extends "amazon/base.html" %}
+{% block content %}
+    <h1>
+        {% if item %}
+            Edit Product
+        {% else %}
+            Add Product
+        {% endif %}
+    </h1>
+    <form name="item_form" action="{% url "add_update_item" "-1" %}" method="POST" enctype="multipart/form-data"
+          class="needs-validation" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="item_id" value="{% if item %} {{ item.id }} {% else %} -1 {% endif %}">
+        <div class="row">
+            <div class="col-md-8 order-md-1">
+
+                <div class="input-group mt-4">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text">Description:</span>
+                    </div>
+                    <input id="description" type="text" class="form-control" name="description" placeholder="e.g. apple"
+                           required>
+                    <div class="invalid-feedback" style="width: 100%;">
+                        description is required
+                    </div>
+                </div>
+
+                <div class="input-group mt-4">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text">Price:</span>
+                    </div>
+                    <input id="price" type="number" class="form-control" name="price" placeholder="e.g. 1.99"
+                           step="0.01" required>
+                    <div class="input-group-append">
+                        <span class="input-group-text">&dollar;</span>
+                    </div>
+                    <div class="invalid-feedback" style="width: 100%;">
+                        price is required
+                    </div>
+                </div>
+
+                <div class="input-group mt-4">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text">
+                            <label for="category" class="form-check-label">Category:</label>
+                        </span>
+                    </div>
+                    <select id="category" name="category" class="form-control" onchange="select(this)">
+                        {% for c in categories %}
+                            <option value="{{ c.category }}">{{ c.category }}</option>
+                        {% endfor %}
+                        <option value="">create a new one</option>
+                    </select>
+                </div>
+
+                <hr class="mb-4">
+                <button id="bt_submit" class="btn btn-primary btn-lg btn-block" type="submit">Add Item</button>
+            </div>
+
+            <!-- side bar, upload image -->
+            <div class="col-md-4 order-md-2">
+                <label for="img_preview" class="col-form-label">Preview: </label>
+                <img id="img_preview" class="img-thumbnail col-md-10 offset-1 mb-4"
+                     src="/static/img/sample.jpg" alt="preview"/>
+
+                <!-- for convenience, don't allow seller to change image -->
+                {% if not item %}
+                    <div class="input-group">
+                        <div class="custom-file input-group">
+                            <input id="img" type="file" accept="image/jpg,image/jpeg" class="custom-file-input" name="thumbnail"
+                                   onchange="preview()" required>
+                            <label id="img_label" class="custom-file-label">Choose image</label>
+                            <div class="invalid-feedback" style="width: 100%;">
+                                please upload a thumbnail
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </form>
+{% endblock content %}
+
+{% block script %}
+    <script type="text/javascript">
+        // preview the image file just upload
+        function preview() {
+            const input = document.getElementById("img");
+            const preview = document.getElementById("img_preview");
+            const label = document.getElementById("img_label");
+            preview.src = URL.createObjectURL(input.files[0]);
+            label.innerText = input.files[0].name;
+            preview.onload = function () {
+                URL.revokeObjectURL(preview.src);
+            }
+        }
+
+        // add new category
+        function select(selection) {
+            if (selection.value === "") {
+                const category = prompt("Please input the new category", "");
+                console.debug(category);
+                if (category) {
+                    const option = document.createElement("option");
+                    option.value = category;
+                    option.text = category;
+                    selection.add(option, 0);
+                    option.selected = true;
+                }
+            }
+        }
+
+        // set the value of each field if applicable
+        $(function () {
+            {% if item %}
+                $("#description").val("{{ item.description }}").change();
+                $("#price").val({{ item.price }});
+                $("#category").val("{{ item.category }}");
+                $("#img_preview").attr("src", "{{ item.img }}");
+                $("#bt_submit").text("Save");
+            {% endif %}
+        });
+
+        $("#description").change(function () {
+            check_duplicate($(this).val())
+        });
+
+        // check whether an item is already existed
+        function check_duplicate(description) {
+            const config = {
+                "url": "{% url "check_item" %}",
+                "async": true,
+                "type": "post",
+                "dataType": "json",
+                "data": {
+                    "item_id":
+                        {% if item %}
+                            "{{ item.id }}"
+                        {% else %}
+                            "-1"
+                        {% endif %},
+                    "item_description": description,
+                    "csrfmiddlewaretoken": "{{ csrf_token }}"
+                },
+                "success": function (result) {
+                    if (result["exist"]) {
+                        $("#description").val("")
+                        alert("the item already exist")
+                    }
+                },
+                "error": function (xhr, status, error) {
+
+                }
+            };
+            $.ajax(config);
+        }
+    </script>
+{% endblock script %}

@@ -1,0 +1,102 @@
+{% extends "amazon/base.html" %}
+{% block content %}
+    <h1>Item management</h1>
+    <!-- order list -->
+    {% if items %}
+        <div class="table-responsive mt-4 table-hover">
+            <table class="table">
+                <thead>
+                <tr class="row text-center">
+                    <th class="col-1">#</th>
+                    <!-- thumbnail + description -->
+                    <th class="col-5 text-left">Item</th>
+                    <th class="col-2">Price</th>
+                    <th class="col-1">Status</th>
+                    <!-- delete button -->
+                    <th class="col-3">Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for item in items %}
+                    <tr class="row text-center border-bottom">
+                        <td class="col-1 align-self-center border-top-0">
+                            <label class="col-form-label"> {{ forloop.counter }}</label>
+                        </td>
+                        <td class="col-5 text-left border-top-0">
+                            <img class="img-thumbnail" style="width: 50px; height: 50px" src="{{ item.img }}">
+                            {{ item.description }}
+                        </td>
+                        <td class="col-2 align-self-center border-top-0">
+                            &dollar; {{ item.price|floatformat:2 }}
+                        </td>
+                        <td class="col-1 align-self-center border-top-0">
+                            <span id="item_status">
+                                {% if item.on_sell %}
+                                    selling
+                                {% else %}
+                                    removed
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="col-3 align-self-center border-top-0">
+                            <a href="{% url "add_update_item" item.id %}" class="btn btn-primary" style="color: white">
+                                Edit
+                            </a>
+                            <button id="bt_delete_{{ item.id }}" onclick="delete_item({{ item.id }})" class="btn btn-outline-secondary">
+                                {% if item.on_sell %}
+                                Delete
+                                {% else %}
+                                Sell
+                                {% endif %}
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div class="text-right">
+                <a href="{% url "add_update_item" "-1" %}" class="btn btn-primary" style="color: white"><i
+                        class="fa fa-plus"></i>
+                    Add more</a>
+            </div>
+        </div>
+    {% else %}
+        <h4 class="m-4">Nothing you are selling,
+            <a href="{% url "add_update_item" "-1" %}">publish your first item today!</a>
+        </h4>
+    {% endif %}
+{% endblock content %}
+
+<!-- javascript -->
+{% block script %}
+    <script type="text/javascript">
+        function delete_item(item_id) {
+            const config = {
+                "url": "{% url "delete_item" %}",
+                "async": true,
+                "type": "post",
+                "dataType": "json",
+                "data": {
+                    "item_id": item_id,
+                    "csrfmiddlewaretoken": "{{ csrf_token }}"
+                },
+                "success": function (result) {
+                    $("#bt_delete_" + item_id).text(result["action"]);
+                    $("#item_status").text(result["status"]);
+                },
+                "error": function (xhr, status, error) {
+
+                }
+            };
+            $.ajax(config);
+        }
+
+        function add_operation_type(element, type) {
+            const operation_field = document.createElement("input");
+            operation_field.type = "hidden"
+            operation_field.name = "operation"
+            operation_field.value = type
+            element.appendChild(operation_field)
+        }
+    </script>
+{% endblock script %}

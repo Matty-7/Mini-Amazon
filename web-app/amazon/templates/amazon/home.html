@@ -1,0 +1,55 @@
+{% extends "amazon/base.html" %}
+{% block content %}
+    {% if seller_name %}
+        <h1>Welcome to {{ seller_name }}'s selling page.</h1>
+    {% else %}
+        <h1>Welcome to mini amazon website</h1>
+    {% endif %}
+    <!-- search bar -->
+    <form method="POST">
+        {% csrf_token %}
+        <!-- use offset to implement center in row -->
+        <div class="input-group p-2 col-md-8 offset-2 bg-light rounded rounded-pill shadow-sm mt-4 searchbar">
+            <input name="search" type="search" placeholder="What do you want?"
+                   class="form-control border-0 bg-light" style="outline: none; border: 0;box-shadow: none">
+            <div class="input-group-append">
+                <button type="submit" class="btn btn-link text-primary">
+                    <!-- search icon -->
+                    <i class="fa fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </form>
+    <!-- item list -->
+    {% if items %}
+        <div class="row">
+            {% for item in items %}
+                <div class="col-lg-3 col-md-4 col-sm-6 col-xs-6">
+                    <div class="listitem">
+                        <a href="{% url 'item_detail' item.id %}">
+                            <img src="{{ item.img }}" class="img-thumbnail" alt="thumbnail"> 
+                            <div class="thumbnail">
+                                <div class="caption">
+                                     <h4>{{ item.description }}</h4>
+                                </div>
+                                <div class="caption">
+                                    <h5>$ {{ item.price|floatformat:2 }}</h5>
+                                </div>
+                            </div>
+                        </a>
+                        <div class="caption">
+                            <h6>
+                                Sell by:
+                                <a href="{% url "home_seller" item.seller.id %}">
+                                    {{ item.seller.username }}
+                                </a>
+                            </h6> 
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <h4 class="m-4">Nothing match the query</h4>
+    {% endif %}
+{% endblock content %}

@@ -1,24 +1,48 @@
+version: '2'
+
 services:
   db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: amazon
-      POSTGRES_PASSWORD: amazon
-      POSTGRES_DB: amazon
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+      image: postgres:latest
+      environment:
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_USER: postgres
+        POSTGRES_DB: amazon
+      restart: always
+      volumes:
+        - data-volume:/var/lib/postgresql/data
+  web-init:
+      build: ./web-app
+      command: bash -c "./wait-for-it.sh db:5432 --strict -- ./initserver.sh"
+      volumes:
+        - ./web-app:/code
+      depends_on:
+        - db
+  web:
+      build: ./web-app
+      user: nobody
+      command: /code/runserver.sh
+      volumes:
+        - ./web-app:/code
+      expose:
+        - "8000"
+      depends_on:
+        - web-init
+  nginx:
+     image: nginx:latest
+     ports:
+       - "8000:8000"
+     volumes:
+       - ./nginx/config:/etc/nginx/conf.d
+     depends_on:
+       - web
+  # daemon should run after the front-end has setted up(since we need the data from it, e.g. warehouse)
+  daemon:
+    build: ./daemon
+    command: bash -c "./gradlew run"
     ports:
-      - "5432:5432"
-  amazon-web:
-    build: .
-    environment:
-      DATABASE_URL: postgresql+psycopg2://amazon:amazon@db:5432/amazon
-      UPS_ENDPOINT: http://ups:9000  # Negotiated with IG
-      WORLD_HOST: worldsim           # Provided by their compose or local change to localhost
-      WORLD_PORT_A: 23456
+      - "9999:9999" # port for UPS
+      - "8888:8888" # port for web
     depends_on:
-      - db
-    ports:
-      - "8080:8080"
+      - web
 volumes:
-  pgdata:
+   data-volume: 
