@@ -593,7 +593,45 @@ body {
     width: 100%;
     background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, #fafafa 100%);
     z-index: 1;
-}./amazon/static/js/
+}
+
+/* -------- auth pages -------- */
+.auth-bg {
+  /* hero gradient + blob decorations */
+  background: radial-gradient(circle at 20% 30%, #7bc27a 0%, rgba(255,255,255,0) 55%),
+              radial-gradient(circle at 80% 70%, #5f788a 0%, rgba(255,255,255,0) 60%),
+              linear-gradient(to bottom right, #eef2f5 0%, #fafafa 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-card {
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.75);
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem 2rem;
+}
+
+.auth-card .form-control {
+  background: rgba(255,255,255,0.85);
+  border: 1px solid #d4dce4;
+}
+
+.auth-card .auth-title {
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.auth-card .btn-primary {
+  background-color: #7bc27a;
+  border-color: #7bc27a;
+}
+./amazon/static/js/
 ./amazon/static/img/
 ./amazon/templates/
 ./amazon/templates/amazon/
@@ -2402,56 +2440,77 @@ def check_password(old_p, new_p, user):
 
 --- File: ./users/templates/users/register.html ---
 {% extends "amazon/base.html" %}
+{% load widget_tweaks %}
 {% block content %}
-    <div class="content-section">
-        <form method="POST">
-            {% csrf_token %}
-            <fieldset class="form-group">
-                <legend class="border-bottom mb-4">Join Today</legend>
-                {{ form.as_p }}
-            </fieldset>
-            <div class="form-group">
-                <button class="btn btn-outline-info" type="submit">Sign Up</button>
-            </div>
-        </form>
-        <div class="border-top pt-3">
-            <small class="text-muted">
-                Already Have An Account? <a class="ml-2" href="{% url 'login' %}">Login In</a>
-            </small>
+<div class="auth-bg">
+  <div class="auth-card">
+    <h3 class="text-center auth-title">Create your account</h3>
+    <form method="POST" novalidate>
+      {% csrf_token %}
+      <div class="form-group">
+        <label><i class="fa fa-user mr-1"></i>Username</label>
+        {{ form.username|add_class:"form-control" }}
+      </div>
+      <div class="form-group">
+        <label><i class="fa fa-envelope mr-1"></i>Email</label>
+        {{ form.email|add_class:"form-control" }}
+      </div>
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <label><i class="fa fa-lock mr-1"></i>Password</label>
+          {{ form.password1|add_class:"form-control" }}
         </div>
-    </div>
-{% endblock content %}
+        <div class="form-group col-md-6">
+          <label><i class="fa fa-check mr-1"></i>Confirm</label>
+          {{ form.password2|add_class:"form-control" }}
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block mt-2" type="submit">
+        <i class="fa fa-user-plus mr-1"></i>Sign Up
+      </button>
+      <p class="text-center mt-3 mb-0">Already have an account?
+        <a href="{% url 'login' %}">Log in</a></p>
+    </form>
+  </div>
+</div>
+{% endblock %}
 
 --- File: ./users/templates/users/login.html ---
 {% extends "amazon/base.html" %}
+{% load widget_tweaks %}
 {% block content %}
-    <div class="content-section">
-        <form method="POST">
-            {% csrf_token %}
-            <fieldset class="form-group">
-                <legend class="border-bottom mb-4">Log In</legend>
-                {{ form.as_p }}
-            </fieldset>
+<div class="auth-bg">
+  <div class="auth-card">
+    <h3 class="text-center auth-title">Welcome back</h3>
+    <form method="POST" novalidate>
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_username"><i class="fa fa-user mr-1"></i>Username</label>
+        {{ form.username|add_class:"form-control" }}
+      </div>
+      <div class="form-group">
+        <label for="id_password"><i class="fa fa-lock mr-1"></i>Password</label>
+        {{ form.password|add_class:"form-control" }}
+      </div>
 
-            {% if messages %}
-                <ul class="messages mb-4">
-                    {% for message in messages %}
-                        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
+      {% if messages %}
+        <ul class="mb-3">
+          {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
 
-            <div class="form-group">
-                <button class="btn btn-outline-info" type="submit">Login</button>
-            </div>
-        </form>
-        <div class="border-top pt-3">
-            <small class="text-muted">
-                Need An Account? <a class="ml-2" href="{% url 'register' %}">Sign Up Now</a>
-            </small>
-        </div>
-    </div>
-{% endblock content %}
+      <button class="btn btn-primary btn-block mt-2" type="submit">
+        <i class="fa fa-sign-in mr-1"></i>Log In
+      </button>
+      <p class="text-center mt-3 mb-0">Need an account?
+        <a href="{% url 'register' %}">Sign up now</a></p>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
 --- File: ./users/templates/users/logout.html ---
 {% extends "amazon/base.html" %}
 {% block content %}
@@ -2639,6 +2698,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'widget_tweaks',
 ]
 
 MIDDLEWARE = [

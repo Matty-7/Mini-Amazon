@@ -183,3 +183,28 @@ body {
   background-color: #7bc27a;
   border-color: #7bc27a;
 }
+
+/* -------- profile & order pages -------- */
+.side-card {
+  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.75);
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  padding: 2rem 1.5rem;
+}
+
+.table-modern thead {
+  background:#f6f8fa;
+  border-bottom:2px solid #e2e8f0;
+}
+.table-modern tbody tr:hover {
+  background:#fbfbfb;
+}
+.badge-status {
+  font-size:.75rem;
+  padding:.35rem .6rem;
+  border-radius:.5rem;
+}
+.badge-processing  { background:#ffe5b4;color:#aa6400; }
+.badge-delivering  { background:#e0f2ff;color:#0c63af; }
+.badge-delivered   { background:#d2f8e5;color:#0d7a43; }

@@ -1,178 +1,166 @@
 {% extends "amazon/base.html" %}
+{% load widget_tweaks %}
 {% block content %}
-    <div class="content-section">
-        <div class="media">
-            <div class="media-body card-header" style="border-bottom: 0;">
-                <h2 class="account-heading">{{ user.username }}</h2>
-                <div class="row" style="margin: 0;">
-                    <label class="text-secondary col-3" style="padding: 0;">{{ user.email }}</label>
-                    <label class="text-secondary col-3" style="padding: 0;">
-                        is seller:
-                        {% if user.profile.is_seller %}
-                            Yes
-                        {% else %}
-                            No
-                        {% endif %}
-                    </label>
-                </div>
-            </div>
-        </div>
-
-        <!-- form for update profile(e.g. name + email) -->
-        <form method="POST" style="overflow: hidden;" class="mt-4">
-            {% csrf_token %}
-
-            <legend class="border-bottom">Profile</legend>
-            <input type="hidden" name="operation" value="update_profile">
-            <div class="row mt-4">
-                <div class="input-group col-md-6">
-                    <div class="input-group-prepend">
-                        <label class="input-group-text" for="username">Username: </label>
-                    </div>
-                    <input type="text" class="form-control" name="username" placeholder="username" required
-                           value={{ username }} id="username">
-                    <div class="invalid-feedback" style="width: 100%;">
-                        username is required
-                    </div>
-                </div>
-
-                <div class="input-group col-md-6">
-                    <div class="input-group-prepend">
-                        <label class="input-group-text" for="email">Email: </label>
-                    </div>
-                    <input type="text" class="form-control" name="email" placeholder="email" required
-                           value={{ email }} id="email">
-                    <div class="invalid-feedback" style="width: 100%;">
-                        email is required
-                    </div>
-                </div>
-            </div>
-
-            <ul class="mt-2">
-                <li>Your username can't contain space.</li>
-                <li>Your username can't be duplicate with any other user.</li>
-            </ul>
-
-            {% if name_errors %}
-                <span style="color: red">
-                    <ul>
-                    {% for error in name_errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                    </ul>
-                </span>
-            {% endif %}
-
-
-            <button class="btn btn-outline-info pull-right mt-2" type="submit">Update</button>
-        </form>
-
-        <!-- form for update password -->
-        <form method="POST" style="overflow: hidden;">
-            {% csrf_token %}
-
-            <legend class="border-bottom mt-2">Password</legend>
-            <input type="hidden" name="operation" value="update_password">
-            <div class="input-group mt-4">
-                <div class="col-2" style="padding: 0;">
-                    <div class="input-group-prepend">
-                        <label class="input-group-text" style="width: 100%;">Old Password: </label>
-                    </div>
-                </div>
-                <input type="password" class="form-control" name="old_password" placeholder="old password" required>
-            </div>
-
-            <div class="input-group mt-3">
-                <div class="col-2" style="padding: 0;">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text" style="width: 100%;">New Password: </span>
-                    </div>
-                </div>
-                <input type="password" class="form-control" name="new_password" placeholder="new password" required>
-            </div>
-            <span class="input-group mt-2">
-                {{ help_text }}
-            </span>
-
-            {% if password_errors %}
-                <span style="color: red">
-                    <ul>
-                    {% for error in password_errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                    </ul>
-                </span>
-            {% endif %}
-
-            <button class="btn btn-outline-info pull-right mt-2" type="submit">Update</button>
-        </form>
-
-        <!-- form for update optional info -->
-        <form method="POST" style="overflow: hidden;">
-            {% csrf_token %}
-
-            <legend class="border-bottom mt-2">Optional Info</legend>
-            <input type="hidden" name="operation" value="update_optional">
-
-            <label class="mt-1">Default address</label>
-            <div class="row">
-                <div class="input-group col-md-6">
-                    <div class="input-group-prepend">
-                        <label class="input-group-text" for="default_x">X: </label>
-                    </div>
-                    <input type="number" class="form-control" name="default_x" placeholder="x coordinate"
-                           id="default_x" value=
-                                   {% if user.profile.default_x != -1 %}
-                                       {{ user.profile.default_x }}
-                                   {% endif %}>
-                </div>
-
-                <div class="input-group col-md-6">
-                    <div class="input-group-prepend">
-                        <label class="input-group-text" for="default_y">Y: </label>
-                    </div>
-                    <input type="number" class="form-control" name="default_y" placeholder="y coordinate"
-                           id="default_y" value=
-                                   {% if user.profile.default_y != -1 %}
-                                       {{ user.profile.default_y }}
-                                   {% endif %}>
-                </div>
-            </div>
-
-            <div class="row mt-3">
-                <div class="input-group col-md-6 mr-auto">
-                    <div class="input-group-prepend">
-                        <label class="input-group-text" for="username">UPS Account: </label>
-                    </div>
-                    <input type="text" class="form-control" name="ups_name" placeholder="ups account name"
-                           value="{{ user.profile.ups_name }}" id="ups_name">
-                </div>
-            </div>
-
-            <button class="btn btn-outline-info pull-right mt-2" type="submit">Update</button>
-        </form>
-
-        <!-- form for update seller info -->
-        <form method="POST" style="overflow: hidden;">
-            {% csrf_token %}
-
-            <legend class="border-bottom mt-2">Seller Info</legend>
-            <input type="hidden" name="operation" value="update_seller">
-
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" value="seller" name="register_seller"
-                       id="register_seller"
-                        {% if user.profile.is_seller %}
-                       checked
-                        {% endif %} >
-                <label class="form-check-label" for="register_seller">Register as a seller</label>
-            </div>
-
-            <button class="btn btn-outline-info pull-right mt-2" type="submit">Update</button>
-        </form>
-
+<div class="row">
+  <!-- 左侧个人卡片 -->
+  <div class="col-md-4 mb-4">
+    <div class="side-card text-center">
+      <h4 class="mb-1">{{ user.username }}</h4>
+      <small class="text-muted">{{ user.email }}</small>
+      <hr>
+      <p class="mb-2">
+        <span class="text-muted">Seller</span>：
+        {% if user.profile.is_seller %}
+           <span class="badge badge-success">Yes</span>
+        {% else %}
+           <span class="badge badge-secondary">No</span>
+        {% endif %}
+      </p>
+      <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Logout</a>
     </div>
-{% endblock content %}
+  </div>
+
+  <!-- 右侧多 Tab 表单 -->
+  <div class="col-md-8">
+    <ul class="nav nav-tabs" id="profileTab" role="tablist">
+      <li class="nav-item">
+        <a class="nav-link active" id="info-tab" data-toggle="tab"
+           href="#info" role="tab">Profile</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="password-tab" data-toggle="tab"
+           href="#password" role="tab">Password</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="optional-tab" data-toggle="tab"
+           href="#optional" role="tab">Optional</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="seller-tab" data-toggle="tab"
+           href="#seller" role="tab">Seller</a>
+      </li>
+    </ul>
+
+    <div class="tab-content py-4">
+      <!-- Profile -->
+      <div class="tab-pane fade show active" id="info" role="tabpanel">
+        <form method="POST" novalidate class="needs-validation">
+          {% csrf_token %}
+          <input type="hidden" name="operation" value="update_profile">
+          <div class="form-group">
+            <label>Username</label>
+            <input name="username" required class="form-control" value="{{ username }}">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input name="email" type="email" required class="form-control" value="{{ email }}">
+          </div>
+          
+          <ul class="mt-2">
+            <li>Your username can't contain space.</li>
+            <li>Your username can't be duplicate with any other user.</li>
+          </ul>
+          
+          {% if name_errors %}
+            <div class="alert alert-danger py-1">
+              <ul>
+              {% for error in name_errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          
+          <button class="btn btn-primary">Save</button>
+        </form>
+      </div>
+
+      <!-- Password -->
+      <div class="tab-pane fade" id="password" role="tabpanel">
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="operation" value="update_password">
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>Old Password</label>
+              <input name="old_password" type="password" class="form-control" required>
+            </div>
+            <div class="form-group col-md-6">
+              <label>New Password</label>
+              <input name="new_password" type="password" class="form-control" required>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <span class="text-muted">{{ help_text }}</span>
+          </div>
+          
+          {% if password_errors %}
+            <div class="alert alert-danger">
+              <ul>
+              {% for error in password_errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          
+          <button class="btn btn-primary">Update</button>
+        </form>
+      </div>
+
+      <!-- Optional -->
+      <div class="tab-pane fade" id="optional" role="tabpanel">
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="operation" value="update_optional">
+          <div class="form-group">
+            <label>Default address</label>
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label>X</label>
+                <input name="default_x" type="number" class="form-control"
+                      value="{% if user.profile.default_x != -1 %}{{ user.profile.default_x }}{% endif %}">
+              </div>
+              <div class="form-group col-md-6">
+                <label>Y</label>
+                <input name="default_y" type="number" class="form-control"
+                      value="{% if user.profile.default_y != -1 %}{{ user.profile.default_y }}{% endif %}">
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>UPS Account</label>
+            <input name="ups_name" class="form-control" value="{{ user.profile.ups_name }}">
+          </div>
+          
+          <button class="btn btn-primary">Save</button>
+        </form>
+      </div>
+      
+      <!-- Seller -->
+      <div class="tab-pane fade" id="seller" role="tabpanel">
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="operation" value="update_seller">
+          
+          <div class="form-group">
+            <div class="custom-control custom-switch">
+              <input type="checkbox" class="custom-control-input" id="register_seller" 
+                     name="register_seller" value="seller" 
+                     {% if user.profile.is_seller %}checked{% endif %}>
+              <label class="custom-control-label" for="register_seller">Register as a seller</label>
+            </div>
+          </div>
+          
+          <button class="btn btn-primary">Update</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
 
 {% block script %}
     <script type="text/javascript">

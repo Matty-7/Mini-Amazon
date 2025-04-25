@@ -1,81 +1,85 @@
 {% extends "amazon/base.html" %}
 {% block content %}
-    <h3>&nbsp;&nbsp;Your Orders</h3>
-    <br>
-    <div class="content-section">
-        {% if package_list %}
-            <!--search-bar-->
-            <form method="POST">
-                {% csrf_token %}
-                <div class="input-group p-2 col-md-8 offset-2 bg-light rounded rounded-pill shadow-sm mt-4 searchbar">
-                    <input name="search" type="search" placeholder="Which order are you looking for"
-                           class="form-control border-0 bg-light" style="outline: none; border: 0;box-shadow: none">
-                    <div class="input-group-append">
-                        <button type="submit" class="btn btn-link text-primary">
-                            <!-- search icon -->
-                            <i class="fa fa-search"></i>
-                        </button>
+<h3 class="mb-4">&nbsp;&nbsp;Your Orders</h3>
+
+<div class="content-section">
+    {% if package_list %}
+        <!--search-bar-->
+        <form method="POST">
+            {% csrf_token %}
+            <div class="input-group p-2 col-md-8 offset-2 bg-light rounded rounded-pill shadow-sm mb-4 searchbar">
+                <input name="search" type="search" placeholder="Which order are you looking for"
+                       class="form-control border-0 bg-light" style="outline: none; border: 0;box-shadow: none">
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-link text-primary">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!--order-list using cards-->
+        <div id="accordionOrders">
+        {% for pack in package_list %}
+            <div class="card mb-3 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center" id="heading{{ pack.id }}">
+                    <div>
+                        <span class="h6">Order #{{ pack.id }}</span>
+                        <span class="badge badge-status badge-{{ pack.status|lower }}">{{ pack.status }}</span>
+                    </div>
+                    <button class="btn btn-link" data-toggle="collapse"
+                            data-target="#collapse{{ pack.id }}" aria-expanded="false">
+                        Details
+                    </button>
+                </div>
+
+                <div id="collapse{{ pack.id }}" class="collapse" data-parent="#accordionOrders">
+                    <div class="card-body p-0">
+                        <table class="table mb-0 table-modern">
+                            <thead>
+                                <tr><th>Item</th><th>Qty</th><th>Total</th></tr>
+                            </thead>
+                            <tbody>
+                            {% for key, value in item_dict.items %}
+                                {% if key is pack.id %}
+                                    {% for order in value %}
+                                        <tr>
+                                            <td>
+                                                <img class="img-thumbnail mr-2" style="width: 40px; height: 40px"
+                                                     src="{{ order.item.img }}">
+                                                {{ order.item.description }}
+                                            </td>
+                                            <td>{{ order.item_cnt }}</td>
+                                            <td>${{ order.total_fixed|floatformat:2 }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                {% endif %}
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Created {{ pack.creation_time|date:"M d, Y" }}</small>
+                        <div>
+                            <strong class="mr-3">Total ${{ pack.total_fixed|floatformat:2 }}</strong>
+                            <a href="/listpackage/{{ pack.id }}/" class="btn btn-outline-info btn-sm">
+                                Detail
+                            </a>
+                            <a href="{% url 'delete-package' pack.id %}" class="btn btn-outline-secondary btn-sm ml-2">
+                                Delete
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </form>
-            <br>
-
-            <!--order-list-->
-            <div class="table-responsive mt-4 table-hover">
-                <table class="table">
-                    <thead>
-                    <tr class="row text-center">
-                        <!-- thumbnail -->
-                        <th class="col-1">#</th>
-                        <th class="col-5">Items</th>
-                        <th class="col-1">Price</th>
-                        <th class="col-2">Creation Time</th>
-                        <th class="col-1">Status</th>
-                        <th class="col-2">Tracking Number</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {% for pack in package_list %}
-                        <tr class="row text-center">
-                            <td class="col-1 align-self-center border-top-0">{{ forloop.counter }}</td>
-                            <td class="col-5 align-self-center border-top-0 text-left">
-                                {% for key, value in item_dict.items %}
-                                    {% if key is pack.id %}
-                                        {% for order in value %}
-                                            {% if forloop.counter < 4 %}
-                                                <img class="img-thumbnail" style="width: 50px; height: 50px"
-                                                     src="{{ order.item.img }}">
-                                                <span style="font-size:14.5px;">{{ order.item.description }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                            <td class="col-1 align-self-center border-top-0">
-                                &dollar;{{ pack.total_fixed|floatformat:2 }}</td>
-                            <td class="col-2 align-self-center border-top-0">{{ pack.creation_time|date:"F d, Y" }}</td>
-                            <td class="col-1 align-self-center border-top-0">{{ pack.status }}</td>
-                            <td class="col-2 align-self-center border-top-0">{{ pack.id }}</td>
-                        </tr>
-                        <tr class="row border-bottom">
-                            <td class="col-10 border-top-0"></td>
-                            <td class="col-1 border-top-0">
-                                <a href="/listpackage/{{ pack.id }}/" class="btn btn-outline-info">Detail</a>
-                            </td>
-                            <td class="col-1 border-top-0">
-                                <a href="{% url 'delete-package' pack.id %}"
-                                   class="btn btn-outline-secondary">Delete</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
             </div>
-        {% else %}
-            <h4 class="m-4">No order found,
-                <a href="{% url 'home' %}">buy something TODAY!</a>
-            </h4>
-        {% endif %}
-    </div>
-
-{% endblock content %}
+        {% empty %}
+            <h4 class="m-4">No order yet, <a href="{% url 'home' %}">start shopping!</a></h4>
+        {% endfor %}
+        </div>
+    {% else %}
+        <h4 class="m-4">No order found,
+            <a href="{% url 'home' %}">buy something TODAY!</a>
+        </h4>
+    {% endif %}
+</div>
+{% endblock %}
