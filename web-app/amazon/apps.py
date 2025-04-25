@@ -6,28 +6,27 @@ from django.db.models.signals import post_migrate
 def default_users():
     from django.contrib.auth.models import User
     try:
-        User.objects.get(username="mini_amazon")
+        User.objects.get(username="Matty")
     except User.DoesNotExist:
-        mini_amazon = User.objects.create(
-            username="mini_amazon",
-            email="miniamazon@noreply.com",
+        Matty = User.objects.create(
+            username="Matty",
+            email="Matty@noreply.com",
             is_superuser=False
         )
-        mini_amazon.set_password("amazon12345")
-        mini_amazon.profile.is_seller = True
-        mini_amazon.save()
+        Matty.set_password("Matty12345")
+        Matty.profile.is_seller = True
+        Matty.save()
     try:
-        User.objects.get(username="xkw")
+        User.objects.get(username="Alex")
     except User.DoesNotExist:
-        xkw = User.objects.create(
-            username="xkw",
-            email="xkw@noreply.com",
+        Alex = User.objects.create(
+            username="Alex",
+            email="Alex@noreply.com",
             is_superuser=False
         )
-        xkw.set_password("xkw12345")
-        xkw.profile.is_seller = True
-        xkw.save()
-
+        Alex.set_password("Alex12345")
+        Alex.profile.is_seller = True
+        Alex.save()
 
 # This function will check whether there are default category of products, and will create if not.
 def default_category():
@@ -44,25 +43,25 @@ def default_items():
     from amazon.models import Item, Category
     if Item.objects.all().count() == 0:
         # at the first time, we should insert some default data
-        amazon = User.objects.get(username="mini_amazon")
-        xkw = User.objects.get(username="xkw")
+        amazon = User.objects.get(username="Matty")
+        Alex = User.objects.get(username="Alex")
         fruit = Category.objects.get(category="fruit")
         food = Category.objects.get(category="food")
         electronic = Category.objects.get(category="electronic")
         Item.objects.create(
             description="apple", price=1.99,
             img="/static/img/apple.jpg", category=fruit,
-            seller=xkw
+            seller=Alex
         )
         Item.objects.create(
             description="orange", price=0.99,
             img="/static/img/orange.jpg", category=fruit,
-            seller=xkw
+            seller=Alex
         )
         Item.objects.create(
             description="Fried Chicken", price=5.99,
             img="/static/img/fried_chicken.jpg", category=food,
-            seller=xkw
+            seller=Alex
         )
         Item.objects.create(
             description="iPad Mini", price=399.99,
