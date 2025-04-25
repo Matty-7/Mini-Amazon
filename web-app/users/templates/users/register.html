@@ -1,20 +1,35 @@
 {% extends "amazon/base.html" %}
+{% load widget_tweaks %}
 {% block content %}
-    <div class="content-section">
-        <form method="POST">
-            {% csrf_token %}
-            <fieldset class="form-group">
-                <legend class="border-bottom mb-4">Join Today</legend>
-                {{ form.as_p }}
-            </fieldset>
-            <div class="form-group">
-                <button class="btn btn-outline-info" type="submit">Sign Up</button>
-            </div>
-        </form>
-        <div class="border-top pt-3">
-            <small class="text-muted">
-                Already Have An Account? <a class="ml-2" href="{% url 'login' %}">Login In</a>
-            </small>
+<div class="auth-bg">
+  <div class="auth-card">
+    <h3 class="text-center auth-title">Create your account</h3>
+    <form method="POST" novalidate>
+      {% csrf_token %}
+      <div class="form-group">
+        <label><i class="fa fa-user mr-1"></i>Username</label>
+        {{ form.username|add_class:"form-control" }}
+      </div>
+      <div class="form-group">
+        <label><i class="fa fa-envelope mr-1"></i>Email</label>
+        {{ form.email|add_class:"form-control" }}
+      </div>
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <label><i class="fa fa-lock mr-1"></i>Password</label>
+          {{ form.password1|add_class:"form-control" }}
         </div>
-    </div>
-{% endblock content %}
+        <div class="form-group col-md-6">
+          <label><i class="fa fa-check mr-1"></i>Confirm</label>
+          {{ form.password2|add_class:"form-control" }}
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block mt-2" type="submit">
+        <i class="fa fa-user-plus mr-1"></i>Sign Up
+      </button>
+      <p class="text-center mt-3 mb-0">Already have an account?
+        <a href="{% url 'login' %}">Log in</a></p>
+    </form>
+  </div>
+</div>
+{% endblock %}

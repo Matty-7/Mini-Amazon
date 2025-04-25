@@ -1,5 +1,4 @@
 === PROJECT FILE STRUCTURE ===
-  |  |-__init__.py
   |  |  |-__init__.cpython-38.pyc
   |  |  |-admin.cpython-38.pyc
   |  |  |-apps.cpython-38.pyc
@@ -9,7 +8,6 @@
   |  |  |-views.cpython-38.pyc
   |  |-admin.py
   |  |-apps.py
-  |  |  |-__init__.py
   |  |  |  |-__init__.cpython-38.pyc
   |  |  |  |-0001_initial.cpython-38.pyc
   |  |  |-0001_initial.py
@@ -19,6 +17,7 @@
   |  |  |  |-banner1.png
   |  |  |  |-banner2.png
   |  |  |  |-banner3.png
+  |  |  |  |-fresh-logo.png
   |  |  |  |-fried_chicken.jpg
   |  |  |  |-ipad_mini.jpg
   |  |  |  |-ipad_pro.jpg
@@ -39,12 +38,14 @@
   |  |  |  |-list_package.html
   |  |  |  |-shopping_cart.html
   |  |  |  |-success.html
-  |  |-tests.py
   |  |-urls.py
   |  |-utils.py
   |  |-views.py
+  |  |  |-__init__.cpython-38.pyc
+  |  |  |-settings.cpython-38.pyc
+  |  |  |-urls.cpython-38.pyc
+  |  |  |-wsgi.cpython-38.pyc
   |-Dockerfile
-  |  |-__init__.py
   |  |  |-__init__.cpython-38.pyc
   |  |  |-settings.cpython-38.pyc
   |  |  |-urls.cpython-38.pyc
@@ -59,7 +60,6 @@
   |-print_all.sh
   |-requirements.txt
   |-runserver.sh
-  |  |-__init__.py
   |  |  |-__init__.cpython-38.pyc
   |  |  |-admin.cpython-38.pyc
   |  |  |-apps.cpython-38.pyc
@@ -69,10 +69,8 @@
   |  |  |-urls.cpython-38.pyc
   |  |  |-utils.cpython-38.pyc
   |  |  |-views.cpython-38.pyc
-  |  |-admin.py
   |  |-apps.py
   |  |-forms.py
-  |  |  |-__init__.py
   |  |  |  |-__init__.cpython-38.pyc
   |  |  |  |-0001_initial.cpython-38.pyc
   |  |  |-0001_initial.py
@@ -82,7 +80,6 @@
   |  |  |  |-logout.html
   |  |  |  |-profile.html
   |  |  |  |-register.html
-  |  |-tests.py
   |  |-urls.py
   |  |-utils.py
   |  |-views.py
@@ -92,8 +89,6 @@
 ./
 ./amazon/
 ./amazon/migrations/
-
---- File: ./amazon/migrations/__init__.py ---
 ./amazon/migrations/__pycache__/
 
 --- File: ./amazon/migrations/0001_initial.py ---
@@ -173,24 +168,6 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils.timezone import now
 
-# Create your models here.
-
-"""
-README
-use real amazon as reference
-Item stands for the actual item we are selling.
-Order stands for an order, contains an item and count.
-Package stands for one pack, contains delivery-related information and list of orders.
-1. Every time use click "add to cart" or "place order", we will create a new order
-(NOTE: this action should happen in the item detail page)
-    1.1 if user click "add to cart", we will leave the package field of order NULL
-    1.2 if user click "place order", we will create a new package, and add this order into package
-2. To fetch the shop car of one user ---> user.orders.filter(package__isnull=True)
-3. To fetch all historical packages of one user ---> user.packages
-"""
-
-
-# warehouse class, used to initial a list of ware house
 class WareHouse(models.Model):
     x = models.IntegerField(default=1)
     y = models.IntegerField(default=1)
@@ -198,23 +175,16 @@ class WareHouse(models.Model):
     def __str__(self):
         return "<" + str(self.x) + ", " + str(self.y) + ">"
 
-
-# The category of different items.
 class Category(models.Model):
     category = models.CharField(max_length=50, blank=False, null=False)
 
     def __str__(self):
         return self.category
 
-
-# This is the class which represent one specific item.
 class Item(models.Model):
     description = models.CharField(max_length=100, blank=False, null=False)
-    # below are some values we might want for advance feature(we can add more)
     price = models.FloatField(default=0.99, blank=False, null=False)
     img = models.CharField(max_length=50, default="/static/img/sample.jpg")
-    # even we delete the seller or category info, we should still keep the item info
-    # since there will be some history order referring to it
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
     seller = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     on_sell = models.BooleanField(default=True)
@@ -222,9 +192,6 @@ class Item(models.Model):
     def __str__(self):
         return self.description
 
-
-# This stands for a package(stands for one purchase).
-# each package can contains several orders(e.g. package.orders.all())
 class Package(models.Model):
     # user info
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="packages")
@@ -253,7 +220,6 @@ class Package(models.Model):
             total += order.total()
         return total
 
-    # NOTE: this value will not change according the item price(aka it's fixed)
     def total_fixed(self):
         total = 0
         for order in self.orders.all():
@@ -270,17 +236,13 @@ class Package(models.Model):
     def __str__(self):
         return "<" + str(self.warehouse) + ", " + self.status + ">"
 
-
 # order = item id + item counts (+ item price)
 class Order(models.Model):
     # user info
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="orders")
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     item_cnt = models.IntegerField(default=1)
-    # since seller can change the price, but the price of any finished order can't be change
-    # so we need to store the price info of any finished order
     item_price = models.FloatField(default=0.99)
-    # package id
     package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name="orders", null=True, blank=True)
     creation_time = models.DateTimeField(default=now)
 
@@ -289,15 +251,12 @@ class Order(models.Model):
         return self.item_cnt * self.item.price
 
     # return the total price for current order
-    # NOTE: this value will not change according the item price(aka it's fixed)
     def total_fixed(self):
         return self.item_cnt * self.item_price
 
     def __str__(self):
         return "<" + str(self.package_id) + ", <" + str(self.item_id) + ', ' + str(self.item_cnt) + ">>"
 
-
---- File: ./amazon/__init__.py ---
 ./amazon/__pycache__/
 
 --- File: ./amazon/apps.py ---
@@ -309,28 +268,27 @@ from django.db.models.signals import post_migrate
 def default_users():
     from django.contrib.auth.models import User
     try:
-        User.objects.get(username="mini_amazon")
+        User.objects.get(username="Matty")
     except User.DoesNotExist:
-        mini_amazon = User.objects.create(
-            username="mini_amazon",
-            email="miniamazon@noreply.com",
+        Matty = User.objects.create(
+            username="Matty",
+            email="Matty@noreply.com",
             is_superuser=False
         )
-        mini_amazon.set_password("amazon12345")
-        mini_amazon.profile.is_seller = True
-        mini_amazon.save()
+        Matty.set_password("Matty12345")
+        Matty.profile.is_seller = True
+        Matty.save()
     try:
-        User.objects.get(username="xkw")
+        User.objects.get(username="Alex")
     except User.DoesNotExist:
-        xkw = User.objects.create(
-            username="xkw",
-            email="xkw@noreply.com",
+        Alex = User.objects.create(
+            username="Alex",
+            email="Alex@noreply.com",
             is_superuser=False
         )
-        xkw.set_password("xkw12345")
-        xkw.profile.is_seller = True
-        xkw.save()
-
+        Alex.set_password("Alex12345")
+        Alex.profile.is_seller = True
+        Alex.save()
 
 # This function will check whether there are default category of products, and will create if not.
 def default_category():
@@ -346,46 +304,45 @@ def default_items():
     from django.contrib.auth.models import User
     from amazon.models import Item, Category
     if Item.objects.all().count() == 0:
-        # at the first time, we should insert some default data
-        amazon = User.objects.get(username="mini_amazon")
-        xkw = User.objects.get(username="xkw")
+        Matty = User.objects.get(username="Matty")
+        Alex = User.objects.get(username="Alex")
         fruit = Category.objects.get(category="fruit")
         food = Category.objects.get(category="food")
         electronic = Category.objects.get(category="electronic")
         Item.objects.create(
             description="apple", price=1.99,
             img="/static/img/apple.jpg", category=fruit,
-            seller=xkw
+            seller=Alex
         )
         Item.objects.create(
             description="orange", price=0.99,
             img="/static/img/orange.jpg", category=fruit,
-            seller=xkw
+            seller=Alex
         )
         Item.objects.create(
             description="Fried Chicken", price=5.99,
             img="/static/img/fried_chicken.jpg", category=food,
-            seller=xkw
+            seller=Alex
         )
         Item.objects.create(
             description="iPad Mini", price=399.99,
             img="/static/img/ipad_mini.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
         Item.objects.create(
             description="iPad", price=429.99,
             img="/static/img/ipad.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
         Item.objects.create(
             description="iPad Pro", price=1099.99,
             img="/static/img/ipad_pro.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
         Item.objects.create(
             description="Magic Keyboard", price=129.99,
             img="/static/img/magic_keyboard.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
 
 
@@ -427,7 +384,6 @@ from amazon.models import WareHouse
 from concurrent.futures import ThreadPoolExecutor
 import math
 
-# email address info
 SMTP_SERVER = 'smtp.gmail.com:587'
 USER_ACCOUNT = {
     'username': 'ece568noreply@gmail.com',
@@ -435,14 +391,13 @@ USER_ACCOUNT = {
 }
 pool = ThreadPoolExecutor(10)
 
-
 def send_email_async(receivers, text):
     pool.submit(send_email, receivers, text)
 
 
 def send_email(receivers, text):
     msg_root = MIMEMultipart()
-    msg_root['Subject'] = "Info from Mini Amazon 568"
+    msg_root['Subject'] = "Info from Our Mini Amazon"
     msg_root['To'] = ", ".join(receivers)
     msg_text = MIMEText(text)
     msg_root.attach(msg_text)
@@ -458,7 +413,6 @@ def save_img(name, data):
     img = Image.open(data)
     img.save("/code/amazon/static/img/%s" % (name), "JPEG", optimize=1)
 
-
 # calculate the nearest warehouse for the location
 def cal_warehouse(x, y):
     whs = WareHouse.objects.all()
@@ -471,14 +425,10 @@ def cal_warehouse(x, y):
             min_id = wh.id
     return min_id
 
-
-# Tell the daemon to purchase something, which specify by the package id.
-# front-end should first store the package into DB and then notify the daemon by sending the id.
 def purchase(package_id):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # use port 8888 to communicate with daemon
     client.connect(('daemon', 8888))
-    # NOTE: append a \n at the end to become a line
     msg = str(package_id) + '\n'
     client.send(msg.encode('utf-8'))
     # expected response: ack:<package_id>
@@ -490,9 +440,8 @@ def purchase(package_id):
     print('recv:', data)
     return False
 
-
 if __name__ == '__main__':
-    send_email_async(["xiakewei96@gmail.com"], "hello")
+    send_email_async(["mattyhuan7@gmail.com"], "hello")
 ./amazon/static/
 ./amazon/static/amazon/
 
@@ -627,12 +576,12 @@ ul {
 .site-header {
     position: absolute;
     width: 100%;
-    z-index: 10;
+    z-index: 5;
 }
 
 /* Prevent banner margin collapse */
 body {
-    padding-top: 60px;
+    padding-top: 90px;
     margin: 0;
 }
 
@@ -922,7 +871,7 @@ body {
 
   <!-- item list overlayed on banner -->
   {% if items %}
-    <div class="container" style="margin-top: -360px; position: relative; z-index: 2">
+    <div class="container" style="margin-top: -250px; position: relative; z-index: 2">
       {% for cat in categories %}
         <section class="mb-5">
           <h4 class="mt-4">{{ cat.category|capfirst }}</h4>
@@ -1777,46 +1726,25 @@ body {
     </script>
 {% endblock script %}
 
---- File: ./amazon/tests.py ---
-from django.test import TestCase
-
-# Create your tests here.
-
 --- File: ./amazon/urls.py ---
 from django.urls import path
 
 from . import views
 
 urlpatterns = [
-    # home page(list items)
     path('', views.home, name="home"),
-    # category in home page
     path('category/<category>', views.home_category, name="home_category"),
-
     path('seller/<int:seller_id>', views.home_seller, name="home_seller"),
-    # item detail page
     path('item/<int:item_id>', views.item_detail, name="item_detail"),
-    # checkout page
     path('checkout/<int:package_id>', views.checkout, name="checkout"),
-    # shopping cart page
     path('shopcart', views.shop_cart, name="shop_cart"),
-    # add new item page
     path('add_update_item/<item_id>', views.add_update_item, name="add_update_item"),
-    # item management page for seller
     path('item_management', views.item_management, name="item_management"),
-
-    # api for change cnt in shopping cart
     path('change_cnt', views.change_cnt, name="change_cnt"),
-    # api for check whether an item is already exist
     path('check_item', views.check_item, name="check_item"),
-    # api for delete item
     path('delete_item', views.delete_item, name="delete_item"),
-
-    # list_package page
     path('listpackage/', views.list_package, name='list-package'),
-    # list_package_detail page
     path('listpackage/<int:package_id>/', views.list_package_detail, name='list-package-detail'),
-    # list_package_detail page
     path('deletepackage/<int:package_id>', views.delete_package, name='delete-package'),
 ]
 
@@ -2027,16 +1955,11 @@ def list_package_detail(request, package_id):
     }
     return render(request, 'amazon/list_package_detail.html', context)
 
-
-""" ====== Below are functions for seller ====== """
-
-
 @login_required
 def item_management(request):
     items = Item.objects.filter(seller=request.user).all()
     context = {"items": items}
     return render(request, "amazon/item_management.html", context)
-
 
 @login_required
 def add_update_item(request, item_id):
@@ -2085,11 +2008,6 @@ def add_update_item(request, item_id):
         context["item"] = Item.objects.get(pk=int(item_id))
     return render(request, "amazon/item_add_update.html", context)
 
-
-""" ====== Below are some ajax api ====== """
-
-
-# ajax api for changing item count in the shopping cart
 @login_required
 def change_cnt(request):
     if request.is_ajax() and request.method == "POST":
@@ -2151,6 +2069,8 @@ def delete_item(request):
         item.save()
         return JsonResponse(data)
     return JsonResponse({})
+./config/
+./config/__pycache__/
 ./users/
 
 --- File: ./users/signals.py ---
@@ -2170,8 +2090,6 @@ def create_profile(sender, instance, created, **kwargs):
 def save_profile(sender, instance, **kwargs):
     instance.profile.save()
 ./users/migrations/
-
---- File: ./users/migrations/__init__.py ---
 ./users/migrations/__pycache__/
 
 --- File: ./users/migrations/0001_initial.py ---
@@ -2216,8 +2134,6 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'{self.user.username} Profile'
-
---- File: ./users/__init__.py ---
 ./users/__pycache__/
 
 --- File: ./users/apps.py ---
@@ -2256,11 +2172,6 @@ class ProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = Profile
         fields = ['is_seller']
-
---- File: ./users/admin.py ---
-from django.contrib import admin
-
-# Register your models here.
 
 --- File: ./users/utils.py ---
 from django.contrib.auth.models import User
@@ -2479,8 +2390,6 @@ def check_password(old_p, new_p, user):
 
 {% block script %}
     <script type="text/javascript">
-        // TODO: use ajax to validate input and show message
-        // 1. show a message box when register successful
         function check_username() {
             return false;
         }
@@ -2488,8 +2397,6 @@ def check_password(old_p, new_p, user):
         function check_password() {
             return false;
         }
-
-        // 2. show error message when password fail
     </script>
 {% endblock script %}
 
@@ -2555,11 +2462,6 @@ def check_password(old_p, new_p, user):
         </small>
     </div>
 {% endblock content %}
---- File: ./users/tests.py ---
-from django.test import TestCase
-
-# Create your tests here.
-
 --- File: ./users/urls.py ---
 from django.urls import path
 
@@ -2693,8 +2595,6 @@ from django.core.asgi import get_asgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ERSSHW5.settings')
 
 application = get_asgi_application()
-
---- File: ./ERSSHW5/__init__.py ---
 ./ERSSHW5/__pycache__/
 
 --- File: ./ERSSHW5/settings.py ---
