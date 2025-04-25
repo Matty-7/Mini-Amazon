@@ -73,10 +73,6 @@
   |  |  |-urls.py
   |  |  |-utils.py
   |  |  |-views.py
-  |  |  |  |-__init__.cpython-38.pyc
-  |  |  |  |-settings.cpython-38.pyc
-  |  |  |  |-urls.cpython-38.pyc
-  |  |  |  |-wsgi.cpython-38.pyc
   |  |-Dockerfile
   |  |  |  |-__init__.cpython-38.pyc
   |  |  |  |-settings.cpython-38.pyc
@@ -838,8 +834,6 @@ def delete_item(request):
         item.save()
         return JsonResponse(data)
     return JsonResponse({})
-./web-app/config/
-./web-app/config/__pycache__/
 
 --- File: ./web-app/wait-for-it.sh ---
 #!/usr/bin/env bash
@@ -1363,6 +1357,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'widget_tweaks',
 ]
 
 MIDDLEWARE = [
@@ -1572,7 +1567,7 @@ message ItemInfo {
 //Amazon to UPS
 message RequestPickup {
   required int64 seqnum = 123;
-  required int64 ups_user_id = 1;
+  optional string ups_user_id = 1;
   repeated ItemInfo items = 2;
   required int64 order_id = 3;
   required int32 warehouse_id = 4;
@@ -1595,11 +1590,6 @@ message LoadReady {
   required int64 package_id = 1;
 }
 
-message ReturnAck {
-  required int64 seqnum = 123;
-  required int64 package_id = 1;
-}
-
 // UPS to Amazon
 
 message PickupResp {
@@ -1608,7 +1598,6 @@ message PickupResp {
   required int64 order_id = 2;
   required int32 truck_id = 3;
 }
-
 
 message RedirectResp {
   required int64 seqnum = 123;
