@@ -1,68 +1,97 @@
 {% extends "amazon/base.html" %}
-{% block content %}
-    <!--
-    NOTE:
-    we only consider medium size, aka "md"
-    mb: margin bottom
-    pb: padding bottom
-    order: make the order of each element in a row(smaller to larger)
-    -->
-    <div class="row">
-        <h1>{{ item.description }}</h1>
-    </div>
-    <div class="row mt-4">
-        <!-- item image -->
-        <div class="col-md-4 order-md-1 align-content-center">
-            <!-- make it responsive, so it won't be larger than parent -->
-            <img src="{{ item.img }}" class="img-fluid mt-2" alt="item image" style="width: 100%; height: auto">
-        </div>
-        <!-- item description + price -->
-        <div class="col-md-4 order-md-2">
-            <p class="text-md-left mt-4" style="font-size: x-large">
-                Price:
-                <span style="color: red; "> ${{ item.price|floatformat:2 }}</span>
-                <span style="font-size: medium">
-                &
-                <b>Free shipping</b>
-                </span>
-            </p>
-            <p class="text-md-left mt-4" style="font-size: xx-large">
-                <b>BUY IT NOW!!!</b>
-            </p>
-        </div>
-        <!-- "buy" & "add to cart" option -->
-        <div class="col-md-4 order-md-3">
-            <div class="p-2" style="border: 1px solid #7bc27a; height: auto">
-                <div class="m-2">
-                    <span style="color: red"> ${{ item.price|floatformat:2 }} </span>
-                </div>
-                <div class="m-2">
-                    <b>& free shipping</b>
-                </div>
-                <div class="m-2">
-                    Arrives: <b>Tomorrow</b>
-                </div>
 
-                <form name="item_form" class="card p-2 ml-2 mt-3" method="POST" onsubmit="return validForm();">
-                    {% csrf_token %}
-                    <input type="number" name="count" min="1" max="999" class="form-control" placeholder="Qty" required>
-                    <button name="action" value="buy" class="btn btn-primary mt-3">Buy Now</button>
-                    <button name="action" value="add" class="btn btn-secondary mt-3">Add to cart</button>
-                </form>
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent p-0 small">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+    <li class="breadcrumb-item">{{ item.category.category|capfirst }}</li>
+    <li class="breadcrumb-item active" aria-current="page">{{ item.description }}</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <div class="row">
+            <!-- 商品图片 -->
+            <div class="col-md-5 mb-4">
+                <img src="{{ item.img }}" 
+                     class="img-fluid rounded" 
+                     alt="{{ item.description }}" 
+                     style="width: 100%; max-height: 400px; object-fit: contain;">
+            </div>
+            
+            <!-- 商品信息 -->
+            <div class="col-md-4 mb-4">
+                <h2 class="mb-3">{{ item.description }}</h2>
+                
+                <div class="mb-3">
+                    <span class="badge bg-light text-secondary">{{ item.category.category|capfirst }}</span>
+                    <small class="text-muted ml-2">Sold by <a href="#">{{ item.seller.username }}</a></small>
+                </div>
+                
+                <div class="d-flex align-items-center mb-3">
+                    <span class="text-success fw-bold fs-4">${{ item.price|floatformat:2 }}</span>
+                    <span class="badge bg-warning text-dark ms-2">Free Shipping</span>
+                </div>
+                
+                <p class="text-muted mb-3">
+                    Fast delivery, high quality product, satisfaction guaranteed.
+                </p>
+                
+                <div class="d-flex align-items-center mb-3">
+                    <div class="text-warning">
+                        <i class="fa fa-star"></i>
+                        <i class="fa fa-star"></i>
+                        <i class="fa fa-star"></i>
+                        <i class="fa fa-star"></i>
+                        <i class="fa fa-star-half-alt"></i>
+                    </div>
+                    <span class="ms-2">4.5 (125 reviews)</span>
+                </div>
+            </div>
+            
+            <!-- 购买选项 -->
+            <div class="col-md-3">
+                <div class="side-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="text-success fw-bold fs-4">${{ item.price|floatformat:2 }}</span>
+                    </div>
+                    
+                    <p class="mb-2"><i class="fa fa-check-circle text-success me-2"></i> Free shipping</p>
+                    <p class="mb-2"><i class="fa fa-truck text-muted me-2"></i> Arrives <strong>Tomorrow</strong></p>
+                    <p class="mb-3"><i class="fa fa-map-marker-alt text-muted me-2"></i> Deliver to your address</p>
+                    
+                    <form name="item_form" method="POST" onsubmit="return validForm();">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="count" class="form-label">Quantity</label>
+                            <input type="number" name="count" id="count" min="1" max="999" class="form-control" value="1" required>
+                        </div>
+                        <button name="action" value="buy" class="btn btn-primary w-100 mb-2">
+                            <i class="fa fa-bolt me-1"></i> Buy Now
+                        </button>
+                        <button name="action" value="add" class="btn btn-outline-secondary w-100">
+                            <i class="fa fa-shopping-cart me-1"></i> Add to Cart
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-{% endblock content %}
+</div>
+{% endblock %}
 
 {% block script %}
-    <script type="text/javascript">
-        function validForm() {
-            if ("{{ item.seller.username }}" === "{{ user.get_username }}") {
-                alert("You can't buy your own item.");
-                return false
-            } else {
-                return true;
-            }
+<script type="text/javascript">
+    function validForm() {
+        if ("{{ item.seller.username }}" === "{{ user.get_username }}") {
+            alert("You can't buy your own item.");
+            return false;
+        } else {
+            return true;
         }
-    </script>
-{% endblock script %}
+    }
+</script>
+{% endblock %}
