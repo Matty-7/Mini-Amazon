@@ -84,3 +84,55 @@ ul {
     border: 3px solid #7bc27a;
     transition: all 0.5s linear;
 }
+
+.navbar-brand img {
+    height: 36px;
+}
+
+.navbar-nav .nav-link small {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    display: block;
+}
+
+.bg-steel {
+    background-color: #131921 !important;
+}
+.navbar-nav .nav-link {
+    color: white !important;
+}
+
+/* 横向滚动条优化 */
+.d-flex::-webkit-scrollbar {
+    height: 6px;
+  }
+  .d-flex::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+  .d-flex::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  .card {
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease-in-out;
+  }
+  .card:hover {
+    transform: scale(1.03);
+  }
+  
+  
+/* Make navbar float over banner */
+.site-header {
+    position: absolute;
+    width: 100%;
+    z-index: 10;
+}
+
+/* Prevent banner margin collapse */
+body {
+    padding-top: 60px;
+    margin: 0;
+}

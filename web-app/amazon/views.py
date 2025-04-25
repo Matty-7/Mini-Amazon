@@ -8,19 +8,22 @@ from amazon.utils import *
 from .models import *
 from .utils import purchase
 
-
-# Home page, used to show a list of items.
 def home(request):
     context = {}
-    items = Item.objects.all().filter(on_sell=True).order_by("id")
+    items = Item.objects.filter(on_sell=True).order_by("id")
     if request.method == "POST":
         search = request.POST["search"]
         items = items.filter(description__icontains=search)
     context["items"] = items
     context["categories"] = Category.objects.all()
     context["category"] = "All"
-    return render(request, "amazon/home.html", context)
+    
+    if request.user.is_authenticated:
+        context["cart_count"] = Order.objects.filter(owner=request.user, package__isnull=True).count()
+    else:
+        context["cart_count"] = 0
 
+    return render(request, "amazon/home.html", context)
 
 # Home page, but with specific category
 def home_category(request, category):
