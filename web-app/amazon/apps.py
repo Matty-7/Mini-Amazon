@@ -42,8 +42,7 @@ def default_items():
     from django.contrib.auth.models import User
     from amazon.models import Item, Category
     if Item.objects.all().count() == 0:
-        # at the first time, we should insert some default data
-        amazon = User.objects.get(username="Matty")
+        Matty = User.objects.get(username="Matty")
         Alex = User.objects.get(username="Alex")
         fruit = Category.objects.get(category="fruit")
         food = Category.objects.get(category="food")
@@ -66,22 +65,22 @@ def default_items():
         Item.objects.create(
             description="iPad Mini", price=399.99,
             img="/static/img/ipad_mini.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
         Item.objects.create(
             description="iPad", price=429.99,
             img="/static/img/ipad.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
         Item.objects.create(
             description="iPad Pro", price=1099.99,
             img="/static/img/ipad_pro.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
         Item.objects.create(
             description="Magic Keyboard", price=129.99,
             img="/static/img/magic_keyboard.jpg", category=electronic,
-            seller=amazon
+            seller=Matty
         )
 
 
