@@ -7,7 +7,6 @@ from amazon.models import WareHouse
 from concurrent.futures import ThreadPoolExecutor
 import math
 
-# email address info
 SMTP_SERVER = 'smtp.gmail.com:587'
 USER_ACCOUNT = {
     'username': 'ece568noreply@gmail.com',
@@ -15,14 +14,13 @@ USER_ACCOUNT = {
 }
 pool = ThreadPoolExecutor(10)
 
-
 def send_email_async(receivers, text):
     pool.submit(send_email, receivers, text)
 
 
 def send_email(receivers, text):
     msg_root = MIMEMultipart()
-    msg_root['Subject'] = "Info from Mini Amazon 568"
+    msg_root['Subject'] = "Info from Our Mini Amazon"
     msg_root['To'] = ", ".join(receivers)
     msg_text = MIMEText(text)
     msg_root.attach(msg_text)
@@ -38,7 +36,6 @@ def save_img(name, data):
     img = Image.open(data)
     img.save("/code/amazon/static/img/%s" % (name), "JPEG", optimize=1)
 
-
 # calculate the nearest warehouse for the location
 def cal_warehouse(x, y):
     whs = WareHouse.objects.all()
@@ -51,14 +48,10 @@ def cal_warehouse(x, y):
             min_id = wh.id
     return min_id
 
-
-# Tell the daemon to purchase something, which specify by the package id.
-# front-end should first store the package into DB and then notify the daemon by sending the id.
 def purchase(package_id):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # use port 8888 to communicate with daemon
     client.connect(('daemon', 8888))
-    # NOTE: append a \n at the end to become a line
     msg = str(package_id) + '\n'
     client.send(msg.encode('utf-8'))
     # expected response: ack:<package_id>
@@ -70,6 +63,5 @@ def purchase(package_id):
     print('recv:', data)
     return False
 
-
 if __name__ == '__main__':
-    send_email_async(["xiakewei96@gmail.com"], "hello")
+    send_email_async(["mattyhuan7@gmail.com"], "hello")
