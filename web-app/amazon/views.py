@@ -204,16 +204,11 @@ def list_package_detail(request, package_id):
     }
     return render(request, 'amazon/list_package_detail.html', context)
 
-
-""" ====== Below are functions for seller ====== """
-
-
 @login_required
 def item_management(request):
     items = Item.objects.filter(seller=request.user).all()
     context = {"items": items}
     return render(request, "amazon/item_management.html", context)
-
 
 @login_required
 def add_update_item(request, item_id):
@@ -262,11 +257,6 @@ def add_update_item(request, item_id):
         context["item"] = Item.objects.get(pk=int(item_id))
     return render(request, "amazon/item_add_update.html", context)
 
-
-""" ====== Below are some ajax api ====== """
-
-
-# ajax api for changing item count in the shopping cart
 @login_required
 def change_cnt(request):
     if request.is_ajax() and request.method == "POST":
