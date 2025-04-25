@@ -240,7 +240,7 @@ public class AmazonDaemon {
             long seq = nextSeq();
             RequestPickup.Builder req = RequestPickup.newBuilder()
                     .setSeqnum(seq)
-                    .setUpsUserId(p.getUpsUserId())
+                    .setUpsUserId(String.valueOf(p.getUpsUserId()))
                     .setOrderId(pkgId)
                     .setWarehouseId(p.getWhID())
                     .setUserDestination(Coordinate.newBuilder()

@@ -37,7 +37,7 @@ message ItemInfo {
 //Amazon to UPS
 message RequestPickup {
   required int64 seqnum = 123;
-  required int64 ups_user_id = 1;
+  optional string ups_user_id = 1;
   repeated ItemInfo items = 2;
   required int64 order_id = 3;
   required int32 warehouse_id = 4;
@@ -60,11 +60,6 @@ message LoadReady {
   required int64 package_id = 1;
 }
 
-message ReturnAck {
-  required int64 seqnum = 123;
-  required int64 package_id = 1;
-}
-
 // UPS to Amazon
 
 message PickupResp {
@@ -73,7 +68,6 @@ message PickupResp {
   required int64 order_id = 2;
   required int32 truck_id = 3;
 }
-
 
 message RedirectResp {
   required int64 seqnum = 123;
