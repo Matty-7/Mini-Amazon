@@ -25,8 +25,8 @@ public class AmazonDaemon {
     private static final String WORLD_HOST = "ece650-vm.colab.duke.edu";
     private static final int    WORLD_PORT = 23456;
 
-    private static final String UPS_HOST   = "vcm-14299.vm.duke.edu";
-    private static final int    UPS_PORT   = 54321;
+    private static final String UPS_HOST   = "vcm-46756.vm.duke.edu";
+    private static final int    UPS_PORT   = 34567;
 
     public static final int  UPS_SERVER_PORT = 9999;    // Flask / real-UPS callback port
     private static final int TIME_OUT_MS     = 3_000;   // resend window (ms) for un-acked msgs
@@ -210,7 +210,8 @@ public class AmazonDaemon {
             APack.Builder packProto = APack.newBuilder()
                     .setWhnum(buy.getWhnum())
                     .addAllThings(buy.getThingsList())
-                    .setShipid(pkgId);
+                    .setShipid(pkgId)
+                    .setSeqnum(seq);
             packageMap.put(pkgId, new Package(pkgId, buy.getWhnum(), packProto.build()));
 
             ACommands.Builder cmd = ACommands.newBuilder().addBuy(buy);
