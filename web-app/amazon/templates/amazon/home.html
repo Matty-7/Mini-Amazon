@@ -1,6 +1,14 @@
 {% extends "amazon/base.html" %}
 {% load static %}
 
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent p-0 small">
+    <li class="breadcrumb-item active" aria-current="page">Home</li>
+  </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div id="heroBanner" class="carousel slide" data-ride="carousel" style="z-index: 1; position: relative; margin-top: -10px;">
   <div class="carousel-inner">

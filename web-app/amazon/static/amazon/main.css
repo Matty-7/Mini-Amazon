@@ -1,15 +1,33 @@
+/* Design Tokens - 设计系统变量 */
+:root {
+  --brand: #7bc27a;
+  --brand-dark: #5f788a;
+  --warn: #febd69;
+  --amazon-orange: #ff9900;
+  --accent: #007185;
+  --text-primary: #131921;
+  --text-secondary: #565959;
+  --bg-light: #f3f3f3;
+  --bg-dark: #131921;
+  --bg-darker: #0f1111;
+  --border-color: #d5d9d9;
+  --border-radius: 0.75rem;
+  --shadow: 0 4px 16px rgba(0,0,0,.1);
+  --transition: all 0.2s ease-in-out;
+}
+
 /* Base reset and layout */
 body {
     font-family: Arial, sans-serif;
-    background-color: #f3f3f3;
-    color: #111;
+    background-color: var(--bg-light);
+    color: var(--text-primary);
     padding-top: 70px;
     margin: 0;
 }
 
 /* Headers */
 h1, h2, h3, h4, h5, h6 {
-    color: #111;
+    color: var(--text-primary);
     font-weight: 500;
 }
 
@@ -19,8 +37,8 @@ h1, h2, h3, h4, h5, h6 {
     top: 0;
     width: 100%;
     z-index: 10;
-    background-color: #131921;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: var(--bg-dark);
+    box-shadow: var(--shadow);
 }
 .navbar-brand img {
     height: 36px;
@@ -32,7 +50,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .site-navbar {
-    background-color: #131921 !important;
+    background-color: var(--bg-dark) !important;
 }
 
 .site-header .navbar-nav .nav-link:hover {
@@ -48,7 +66,7 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
     height: 300px;
     width: 100%;
-    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, #f3f3f3 100%);
+    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, var(--bg-light) 100%);
     z-index: 1;
 }
 
@@ -112,7 +130,7 @@ h1, h2, h3, h4, h5, h6 {
     margin: auto;
 }
 .listitem a p {
-    color: #007185;
+    color: var(--accent);
     font-size: 14px;
     text-align: center;
     margin: 10px 0;
@@ -120,22 +138,22 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Search bar */
 .searchbar {
-    border-radius: 4px;
-    border: 1px solid #ccc;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
     padding: 6px 12px;
     width: 100%;
 }
 .searchbar:hover {
-    border: 2px solid #febd69;
-    transition: all 0.2s ease;
+    border: 2px solid var(--warn);
+    transition: var(--transition);
 }
 
 /* Content sections */
 .content-section {
     background: #ffffff;
     padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
     margin-bottom: 20px;
 }
 
@@ -148,7 +166,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .account-heading {
     font-size: 2rem;
-    color: #111;
+    color: var(--text-primary);
 }
 
 /* Scrollbar Styling */
@@ -199,8 +217,8 @@ body {
 /* -------- auth pages -------- */
 .auth-bg {
   /* hero gradient + blob decorations */
-  background: radial-gradient(circle at 20% 30%, #7bc27a 0%, rgba(255,255,255,0) 55%),
-              radial-gradient(circle at 80% 70%, #5f788a 0%, rgba(255,255,255,0) 60%),
+  background: radial-gradient(circle at 20% 30%, var(--brand) 0%, rgba(255,255,255,0) 55%),
+              radial-gradient(circle at 80% 70%, var(--brand-dark) 0%, rgba(255,255,255,0) 60%),
               linear-gradient(to bottom right, #eef2f5 0%, #fafafa 100%);
   min-height: 100vh;
   display: flex;
@@ -211,8 +229,8 @@ body {
 .auth-card {
   backdrop-filter: blur(12px);
   background: rgba(255,255,255,0.75);
-  border-radius: 1.25rem;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
   width: 100%;
   max-width: 420px;
   padding: 2.5rem 2rem;
@@ -220,7 +238,7 @@ body {
 
 .auth-card .form-control {
   background: rgba(255,255,255,0.85);
-  border: 1px solid #d4dce4;
+  border: 1px solid var(--border-color);
 }
 
 .auth-card .auth-title {
@@ -229,22 +247,22 @@ body {
 }
 
 .auth-card .btn-primary {
-  background-color: #7bc27a;
-  border-color: #7bc27a;
+  background-color: var(--brand);
+  border-color: var(--brand);
 }
 
 /* -------- profile & order pages -------- */
 .side-card {
   backdrop-filter: blur(10px);
   background: rgba(255,255,255,0.75);
-  border-radius: 1rem;
-  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
   padding: 2rem 1.5rem;
 }
 
 .table-modern thead {
   background:#f6f8fa;
-  border-bottom:2px solid #e2e8f0;
+  border-bottom:2px solid var(--border-color);
 }
 .table-modern tbody tr:hover {
   background:#fbfbfb;
@@ -254,6 +272,49 @@ body {
   padding:.35rem .6rem;
   border-radius:.5rem;
 }
-.badge-processing  { background:#ffe5b4;color:#aa6400; }
-.badge-delivering  { background:#e0f2ff;color:#0c63af; }
-.badge-delivered   { background:#d2f8e5;color:#0d7a43; }
+.badge-processing { background:#ffe5b4;color:#aa6400; }
+.badge-delivering { background:#e0f2ff;color:#0c63af; }
+.badge-delivered { background:#d2f8e5;color:#0d7a43; }
+
+/* 添加暗黑模式支持 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-light: var(--bg-darker);
+    --text-primary: #f3f3f3;
+    --border-color: #2d2d2d;
+  }
+  
+  body { 
+    background: var(--bg-darker); 
+    color: var(--text-primary); 
+  }
+  
+  .card, .side-card, .auth-card, .content-section { 
+    background: rgba(28, 30, 30, 0.8); 
+    color: var(--text-primary);
+    border-color: var(--border-color);
+  }
+  
+  .table-modern thead { 
+    background: #222; 
+    border-color: #333;
+  }
+  
+  /* 表单元素 */
+  .form-control, .form-select {
+    background-color: #2d2d2d;
+    border-color: #444;
+    color: #f3f3f3;
+  }
+  
+  /* 链接颜色 */
+  a:not(.btn) {
+    color: var(--brand);
+  }
+  
+  .auth-bg {
+    background: radial-gradient(circle at 20% 30%, var(--brand) 0%, rgba(0,0,0,0) 55%),
+                radial-gradient(circle at 80% 70%, var(--brand-dark) 0%, rgba(0,0,0,0) 60%),
+                linear-gradient(to bottom right, #1c1c1c 0%, #0a0a0a 100%);
+  }
+}
