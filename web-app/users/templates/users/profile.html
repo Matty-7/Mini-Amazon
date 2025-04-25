@@ -1,5 +1,15 @@
 {% extends "amazon/base.html" %}
 {% load widget_tweaks %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-transparent p-0 small">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+    <li class="breadcrumb-item active" aria-current="page">My Account</li>
+  </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="row">
   <!-- 左侧个人卡片 -->
@@ -11,9 +21,9 @@
       <p class="mb-2">
         <span class="text-muted">Seller</span>：
         {% if user.profile.is_seller %}
-           <span class="badge badge-success">Yes</span>
+           <span class="badge bg-success">Yes</span>
         {% else %}
-           <span class="badge badge-secondary">No</span>
+           <span class="badge bg-secondary">No</span>
         {% endif %}
       </p>
       <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Logout</a>
@@ -22,154 +32,169 @@
 
   <!-- 右侧多 Tab 表单 -->
   <div class="col-md-8">
-    <ul class="nav nav-tabs" id="profileTab" role="tablist">
-      <li class="nav-item">
-        <a class="nav-link active" id="info-tab" data-toggle="tab"
-           href="#info" role="tab">Profile</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" id="password-tab" data-toggle="tab"
-           href="#password" role="tab">Password</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" id="optional-tab" data-toggle="tab"
-           href="#optional" role="tab">Optional</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" id="seller-tab" data-toggle="tab"
-           href="#seller" role="tab">Seller</a>
-      </li>
+    <!-- Start Tab Navigation -->
+    <ul class="nav nav-tabs mb-3" id="profileTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#home" type="button" role="tab" aria-controls="home" aria-selected="true">Profile</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="password-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false">Password</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="optional-tab" data-bs-toggle="tab" data-bs-target="#optional" type="button" role="tab" aria-controls="optional" aria-selected="false">Optional</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="seller-tab" data-bs-toggle="tab" data-bs-target="#seller" type="button" role="tab" aria-controls="seller" aria-selected="false">Seller</button>
+        </li>
     </ul>
+    <!-- End Tab Navigation -->
 
-    <div class="tab-content py-4">
-      <!-- Profile -->
-      <div class="tab-pane fade show active" id="info" role="tabpanel">
-        <form method="POST" novalidate class="needs-validation">
-          {% csrf_token %}
-          <input type="hidden" name="operation" value="update_profile">
-          <div class="form-group">
-            <label>Username</label>
-            <input name="username" required class="form-control" value="{{ username }}">
-          </div>
-          <div class="form-group">
-            <label>Email</label>
-            <input name="email" type="email" required class="form-control" value="{{ email }}">
-          </div>
-          
-          <ul class="mt-2">
-            <li>Your username can't contain space.</li>
-            <li>Your username can't be duplicate with any other user.</li>
-          </ul>
-          
-          {% if name_errors %}
-            <div class="alert alert-danger py-1">
-              <ul>
-              {% for error in name_errors %}
-                <li>{{ error }}</li>
-              {% endfor %}
-              </ul>
-            </div>
-          {% endif %}
-          
-          <button class="btn btn-primary">Save</button>
-        </form>
-      </div>
-
-      <!-- Password -->
-      <div class="tab-pane fade" id="password" role="tabpanel">
-        <form method="POST">
-          {% csrf_token %}
-          <input type="hidden" name="operation" value="update_password">
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>Old Password</label>
-              <input name="old_password" type="password" class="form-control" required>
-            </div>
-            <div class="form-group col-md-6">
-              <label>New Password</label>
-              <input name="new_password" type="password" class="form-control" required>
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <span class="text-muted">{{ help_text }}</span>
-          </div>
-          
-          {% if password_errors %}
-            <div class="alert alert-danger">
-              <ul>
-              {% for error in password_errors %}
-                <li>{{ error }}</li>
-              {% endfor %}
-              </ul>
-            </div>
-          {% endif %}
-          
-          <button class="btn btn-primary">Update</button>
-        </form>
-      </div>
-
-      <!-- Optional -->
-      <div class="tab-pane fade" id="optional" role="tabpanel">
-        <form method="POST">
-          {% csrf_token %}
-          <input type="hidden" name="operation" value="update_optional">
-          <div class="form-group">
-            <label>Default address</label>
-            <div class="form-row">
-              <div class="form-group col-md-6">
-                <label>X</label>
-                <input name="default_x" type="number" class="form-control"
-                      value="{% if user.profile.default_x != -1 %}{{ user.profile.default_x }}{% endif %}">
+    <!-- Start Tab Content -->
+    <div class="tab-content" id="profileTabContent">
+        <!-- Profile Tab Content -->
+        <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="info-tab">
+            <form method="POST" novalidate class="needs-validation">
+              {% csrf_token %}
+              <input type="hidden" name="operation" value="update_profile">
+              <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input name="username" id="username" required class="form-control" value="{{ username }}">
               </div>
-              <div class="form-group col-md-6">
-                <label>Y</label>
-                <input name="default_y" type="number" class="form-control"
-                      value="{% if user.profile.default_y != -1 %}{{ user.profile.default_y }}{% endif %}">
+              <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input name="email" id="email" type="email" required class="form-control" value="{{ email }}">
+              </div>
+              
+              <ul class="mt-2">
+                <li>Your username can't contain space.</li>
+                <li>Your username can't be duplicate with any other user.</li>
+              </ul>
+              
+              {% if name_errors %}
+                <div class="alert alert-danger py-1">
+                  <ul>
+                  {% for error in name_errors %}
+                    <li>{{ error }}</li>
+                  {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+              
+              <button class="btn btn-primary">Save</button>
+            </form>
+        </div>
+
+        <!-- Password -->
+        <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="password-tab">
+          <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="operation" value="update_password">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="old_password" class="form-label">Old Password</label>
+                <input name="old_password" id="old_password" type="password" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="new_password" class="form-label">New Password</label>
+                <input name="new_password" id="new_password" type="password" class="form-control" required>
               </div>
             </div>
-          </div>
-          
-          <div class="form-group">
-            <label>UPS Account</label>
-            <input name="ups_name" class="form-control" value="{{ user.profile.ups_name }}">
-          </div>
-          
-          <button class="btn btn-primary">Save</button>
-        </form>
-      </div>
-      
-      <!-- Seller -->
-      <div class="tab-pane fade" id="seller" role="tabpanel">
-        <form method="POST">
-          {% csrf_token %}
-          <input type="hidden" name="operation" value="update_seller">
-          
-          <div class="form-group">
-            <div class="custom-control custom-switch">
-              <input type="checkbox" class="custom-control-input" id="register_seller" 
-                     name="register_seller" value="seller" 
-                     {% if user.profile.is_seller %}checked{% endif %}>
-              <label class="custom-control-label" for="register_seller">Register as a seller</label>
+            
+            <div class="mb-3">
+              <span class="text-muted">{{ help_text }}</span>
             </div>
-          </div>
-          
-          <button class="btn btn-primary">Update</button>
-        </form>
-      </div>
+            
+            {% if password_errors %}
+              <div class="alert alert-danger">
+                <ul>
+                {% for error in password_errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+            
+            <button class="btn btn-primary">Update</button>
+          </form>
+        </div>
+
+        <!-- Optional -->
+        <div class="tab-pane fade" id="optional" role="tabpanel" aria-labelledby="optional-tab">
+          <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="operation" value="update_optional">
+            <div class="mb-3">
+              <label class="form-label">Default address</label>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="default_x" class="form-label">X</label>
+                  <input name="default_x" id="default_x" type="number" class="form-control"
+                        value="{% if user.profile.default_x != -1 %}{{ user.profile.default_x }}{% endif %}">
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="default_y" class="form-label">Y</label>
+                  <input name="default_y" id="default_y" type="number" class="form-control"
+                        value="{% if user.profile.default_y != -1 %}{{ user.profile.default_y }}{% endif %}">
+                </div>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="ups_name" class="form-label">UPS Account</label>
+              <input name="ups_name" id="ups_name" class="form-control" value="{{ user.profile.ups_name }}">
+            </div>
+            
+            <button class="btn btn-primary">Save</button>
+          </form>
+        </div>
+        
+        <!-- Seller -->
+        <div class="tab-pane fade" id="seller" role="tabpanel" aria-labelledby="seller-tab">
+          <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="operation" value="update_seller">
+            
+            <div class="mb-3">
+              <div class="form-check form-switch">
+                <input type="checkbox" class="form-check-input" id="register_seller" 
+                       name="register_seller" value="seller" 
+                       {% if user.profile.is_seller %}checked{% endif %}>
+                <label class="form-check-label" for="register_seller">Register as a seller</label>
+              </div>
+            </div>
+            
+            <button class="btn btn-primary">Update</button>
+          </form>
+        </div>
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block script %}
-    <script type="text/javascript">
-        function check_username() {
-            return false;
+<script type="text/javascript">
+    // Initialize Bootstrap tabs
+    document.addEventListener('DOMContentLoaded', function() {
+        var tabEl = document.getElementById('profileTab');
+        if (tabEl) {
+            var tabs = new bootstrap.Tab(tabEl.querySelector('.nav-link.active'));
+            
+            // Handle tab switching
+            tabEl.addEventListener('click', function(event) {
+                if (event.target.classList.contains('nav-link')) {
+                    var tab = new bootstrap.Tab(event.target);
+                    tab.show();
+                }
+            });
         }
+    });
 
-        function check_password() {
-            return false;
-        }
-    </script>
-{% endblock script %}
+    function check_username() {
+        return false;
+    }
+
+    function check_password() {
+        return false;
+    }
+</script>
+{% endblock %}
