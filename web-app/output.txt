@@ -18,6 +18,7 @@
   |  |  |  |-banner2.png
   |  |  |  |-banner3.png
   |  |  |  |-fresh-logo.png
+  |  |  |  |-fresh-logo.png
   |  |  |  |-fried_chicken.jpg
   |  |  |  |-ipad_mini.jpg
   |  |  |  |-ipad_pro.jpg
@@ -41,6 +42,10 @@
   |  |-urls.py
   |  |-utils.py
   |  |-views.py
+  |  |  |-__init__.cpython-38.pyc
+  |  |  |-settings.cpython-38.pyc
+  |  |  |-urls.cpython-38.pyc
+  |  |  |-wsgi.cpython-38.pyc
   |-Dockerfile
   |  |  |-__init__.cpython-38.pyc
   |  |  |-settings.cpython-38.pyc
@@ -76,7 +81,6 @@
   |  |  |  |-logout.html
   |  |  |  |-profile.html
   |  |  |  |-register.html
-  |  |-tests.py
   |  |-urls.py
   |  |-utils.py
   |  |-views.py
@@ -266,7 +270,11 @@ def default_users():
     from django.contrib.auth.models import User
     try:
         User.objects.get(username="Matty")
+        User.objects.get(username="Matty")
     except User.DoesNotExist:
+        Matty = User.objects.create(
+            username="Matty",
+            email="Matty@noreply.com",
         Matty = User.objects.create(
             username="Matty",
             email="Matty@noreply.com",
@@ -275,14 +283,24 @@ def default_users():
         Matty.set_password("Matty12345")
         Matty.profile.is_seller = True
         Matty.save()
+        Matty.set_password("Matty12345")
+        Matty.profile.is_seller = True
+        Matty.save()
     try:
+        User.objects.get(username="Alex")
         User.objects.get(username="Alex")
     except User.DoesNotExist:
         Alex = User.objects.create(
             username="Alex",
             email="Alex@noreply.com",
+        Alex = User.objects.create(
+            username="Alex",
+            email="Alex@noreply.com",
             is_superuser=False
         )
+        Alex.set_password("Alex12345")
+        Alex.profile.is_seller = True
+        Alex.save()
         Alex.set_password("Alex12345")
         Alex.profile.is_seller = True
         Alex.save()
@@ -303,6 +321,8 @@ def default_items():
     if Item.objects.all().count() == 0:
         Matty = User.objects.get(username="Matty")
         Alex = User.objects.get(username="Alex")
+        Matty = User.objects.get(username="Matty")
+        Alex = User.objects.get(username="Alex")
         fruit = Category.objects.get(category="fruit")
         food = Category.objects.get(category="food")
         electronic = Category.objects.get(category="electronic")
@@ -310,35 +330,42 @@ def default_items():
             description="apple", price=1.99,
             img="/static/img/apple.jpg", category=fruit,
             seller=Alex
+            seller=Alex
         )
         Item.objects.create(
             description="orange", price=0.99,
             img="/static/img/orange.jpg", category=fruit,
+            seller=Alex
             seller=Alex
         )
         Item.objects.create(
             description="Fried Chicken", price=5.99,
             img="/static/img/fried_chicken.jpg", category=food,
             seller=Alex
+            seller=Alex
         )
         Item.objects.create(
             description="iPad Mini", price=399.99,
             img="/static/img/ipad_mini.jpg", category=electronic,
+            seller=Matty
             seller=Matty
         )
         Item.objects.create(
             description="iPad", price=429.99,
             img="/static/img/ipad.jpg", category=electronic,
             seller=Matty
+            seller=Matty
         )
         Item.objects.create(
             description="iPad Pro", price=1099.99,
             img="/static/img/ipad_pro.jpg", category=electronic,
             seller=Matty
+            seller=Matty
         )
         Item.objects.create(
             description="Magic Keyboard", price=129.99,
             img="/static/img/magic_keyboard.jpg", category=electronic,
+            seller=Matty
             seller=Matty
         )
 
@@ -395,6 +422,7 @@ def send_email_async(receivers, text):
 def send_email(receivers, text):
     msg_root = MIMEMultipart()
     msg_root['Subject'] = "Info from Our Mini Amazon"
+    msg_root['Subject'] = "Info from Our Mini Amazon"
     msg_root['To'] = ", ".join(receivers)
     msg_text = MIMEText(text)
     msg_root.attach(msg_text)
@@ -438,6 +466,7 @@ def purchase(package_id):
     return False
 
 if __name__ == '__main__':
+    send_email_async(["mattyhuan7@gmail.com"], "hello")
     send_email_async(["mattyhuan7@gmail.com"], "hello")
 ./amazon/static/
 ./amazon/static/amazon/
@@ -2044,6 +2073,8 @@ def delete_item(request):
         item.save()
         return JsonResponse(data)
     return JsonResponse({})
+./config/
+./config/__pycache__/
 ./users/
 
 --- File: ./users/signals.py ---
@@ -2435,11 +2466,6 @@ def check_password(old_p, new_p, user):
         </small>
     </div>
 {% endblock content %}
---- File: ./users/tests.py ---
-from django.test import TestCase
-
-# Create your tests here.
-
 --- File: ./users/urls.py ---
 from django.urls import path
 

@@ -77,15 +77,6 @@ python manage.py migrate
 
 ---
 
-## 🔐 Default Credentials
-
-| Username       | Password     | Role     |
-|----------------|--------------|----------|
-| mini_amazon    | amazon12345  | Seller   |
-| xkw            | xkw12345     | Seller   |
-
----
-
 ## 📡 Protocol Overview
 
 We use `Protocol Buffers (proto2)` for all inter-system communication.
