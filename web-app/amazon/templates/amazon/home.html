@@ -2,30 +2,6 @@
 {% load static %}
 
 {% block content %}
-  {% if seller_name %}
-    <h1>Welcome to {{ seller_name }}'s selling page.</h1>
-  {% else %}
-    <h1>Welcome to mini amazon website</h1>
-  {% endif %}
-
-  <!-- search bar -->
-  <form method="POST">
-    {% csrf_token %}
-    <div class="input-group p-2 col-md-8 offset-2 bg-light rounded rounded-pill shadow-sm mt-4 searchbar">
-      <input
-        name="search"
-        type="search"
-        placeholder="What do you want?"
-        class="form-control border-0 bg-light"
-        style="outline: none; border: 0; box-shadow: none"
-      />
-      <div class="input-group-append">
-        <button type="submit" class="btn btn-link text-primary">
-          <i class="fa fa-search"></i>
-        </button>
-      </div>
-    </div>
-  </form>
 
   <!-- Amazon-style Hero Banner -->
   <div id="heroBanner" class="carousel slide" data-ride="carousel" style="z-index: 1; position: relative">
@@ -55,6 +31,8 @@
         />
       </div>
     </div>
+    <div class="banner-gradient-mask"></div>
+
     <a class="carousel-control-prev" href="#heroBanner" role="button" data-slide="prev">
       <span class="carousel-control-prev-icon" aria-hidden="true"></span>
       <span class="sr-only">Previous</span>
@@ -67,7 +45,7 @@
 
   <!-- item list overlayed on banner -->
   {% if items %}
-    <div class="container" style="margin-top: -120px; position: relative; z-index: 2">
+    <div class="container" style="margin-top: -250px; position: relative; z-index: 2">
       {% for cat in categories %}
         <section class="mb-5">
           <h4 class="mt-4">{{ cat.category|capfirst }}</h4>

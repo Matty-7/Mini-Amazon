@@ -43,28 +43,36 @@
             </button>
             <!-- use mr-auto to push all other elements to the right side -->
             <div class="collapse navbar-collapse" id="navbarToggle">
-                <!-- use mr-auto to push all other elements to the right side -->
-                <ul class="navbar-nav mr-auto">
-                    <li>
-                        <a class="nav-item nav-link" href="{% url 'home' %}">Home</a>
-                    </li>
-                    {% if categories and category %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
-                               data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                {{ category|capfirst }}
-                            </a>
-                            <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <a class="dropdown-item" href="{% url "home" %}">All</a>
-                                <div class="dropdown-divider"></div>
-                                {% for c in categories %}
-                                    <a class="dropdown-item"
-                                       href="{% url "home_category" c.category %}">{{ c.category|capfirst }}</a>
-                                {% endfor %}
-                            </div>
-                        </li>
-                    {% endif %}
-                </ul>
+
+                <!-- Amazon-style search bar -->
+                <form method="POST" action="{% url 'home' %}" class="form-inline mx-auto" style="flex-grow: 1;">
+                    {% csrf_token %}
+                    <div class="input-group w-100" style="max-width: 600px;">
+                    <div class="input-group-prepend">
+                        <select class="custom-select" style="border-top-left-radius: 4px; border-bottom-left-radius: 4px;">
+                        <option selected>All</option>
+                        <option value="1">Books</option>
+                        <option value="2">Electronics</option>
+                        <option value="3">Toys</option>
+                        </select>
+                    </div>
+                    <input
+                        class="form-control"
+                        type="search"
+                        name="search"
+                        placeholder="Search Amazon"
+                        aria-label="Search"
+                        style="min-width: 0;"
+                    />
+                    <div class="input-group-append">
+                        <button class="btn btn-warning" type="submit" style="border-top-right-radius: 4px; border-bottom-right-radius: 4px;">
+                        <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+                    </div>
+                </form>
+                
+  
 
                 <!-- Navbar Right Side -->
                 <ul class="navbar-nav">

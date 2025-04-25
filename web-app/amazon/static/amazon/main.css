@@ -128,11 +128,21 @@ ul {
 .site-header {
     position: absolute;
     width: 100%;
-    z-index: 10;
+    z-index: 5;
 }
 
 /* Prevent banner margin collapse */
 body {
-    padding-top: 60px;
+    padding-top: 90px;
     margin: 0;
+}
+
+.banner-gradient-mask {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 300px;
+    width: 100%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, #fafafa 100%);
+    z-index: 1;
 }
