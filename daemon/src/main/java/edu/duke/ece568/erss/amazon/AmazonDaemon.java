@@ -25,15 +25,16 @@ public class AmazonDaemon {
     private static final String WORLD_HOST = "ece650-vm.colab.duke.edu";
     private static final int    WORLD_PORT = 23456;
 
-    private static final String UPS_HOST   = "vcm-46756.vm.duke.edu";
+    private static final String UPS_HOST   = "localhost";
     private static final int    UPS_PORT   = 34567;
 
-    public static final int  UPS_SERVER_PORT = 9999;    // Flask / real-UPS callback port
+    public static final int  UPS_SERVER_PORT = 34567;    // Flask / real-UPS callback port
     private static final int TIME_OUT_MS     = 3_000;   // resend window (ms) for un-acked msgs
 
     // ------------------------- runtime state --------------------------
     private InputStream  worldIn;
     private OutputStream worldOut;
+    private long worldId = 4;
 
     private long seqNum = 0;                // global monotonically-increasing seq-num
 
@@ -76,7 +77,7 @@ public class AmazonDaemon {
         System.out.println("Listening for UPS callbacks on port " + UPS_SERVER_PORT);
 
         // 2) Connect to World - let it choose / allocate the world-id for this session.
-        if (!connectToWorld(-1)) {
+        if (!connectToWorld(worldId)) {
             throw new IOException("Failed to connect to World simulator");
         }
     }
@@ -86,6 +87,7 @@ public class AmazonDaemon {
         worldIn  = socket.getInputStream();
         worldOut = socket.getOutputStream();
 
+        // First try with warehouses
         AConnect.Builder connect = AConnect.newBuilder()
                 .setIsAmazon(true)
                 .addAllInitwh(warehouses);
@@ -96,9 +98,36 @@ public class AmazonDaemon {
         AConnected.Builder connected = AConnected.newBuilder();
         recvMsgFrom(connected, worldIn);
 
+        String result = connected.getResult();
         System.out.printf("World handshake -> id=%d  result=%s%n",
-                          connected.getWorldid(), connected.getResult());
-        return "connected!".equals(connected.getResult());
+                          connected.getWorldid(), result);
+        
+        // If we get an error about warehouses already existing, try connecting without warehouses
+        if (result != null && result.contains("warehouse_id") && result.contains("already exists")) {
+            System.out.println("Warehouses already exist, reconnecting without creating warehouses...");
+            
+            // Close existing connection and open a new one
+            socket.close();
+            socket = new Socket(WORLD_HOST, WORLD_PORT);
+            worldIn  = socket.getInputStream();
+            worldOut = socket.getOutputStream();
+            
+            // Connect without warehouses
+            connect = AConnect.newBuilder()
+                    .setIsAmazon(true);
+            if (worldID >= 0) connect.setWorldid(worldID);
+            
+            sendMsgTo(connect.build(), worldOut);
+            
+            connected = AConnected.newBuilder();
+            recvMsgFrom(connected, worldIn);
+            
+            result = connected.getResult();
+            System.out.printf("World handshake (retry) -> id=%d  result=%s%n",
+                              connected.getWorldid(), result);
+        }
+        
+        return "connected!".equals(result);
     }
 
     // ----------------------- main threads ---------------------------
@@ -274,15 +303,43 @@ public class AmazonDaemon {
 
     // World-event handlers  
     private void purchased(APurchaseMore buy) {
-        packageMap.values().stream()
+        System.out.printf("Searching for package with warehouse ID %d (arrived purchase seq=%d)%n", 
+                          buy.getWhnum(), buy.getSeqnum());
+        System.out.printf("Current packages in map: %s%n", packageMap.keySet());
+        
+        // Try to find a matching package
+        Optional<Package> matchedPkg = packageMap.values().stream()
                 .filter(p -> p.matchesArrival(buy))
-                .findFirst()
-                .ifPresent(p -> {
-                    logStage("purchased", p.getId());
-                    p.setStatus(Package.PROCESSED);
-                    toRequestPickup(p.getId());  // ask UPS for pickup
-                    toPack(p.getId());           // concurrently ask World to pack
-                });
+                .findFirst();
+        
+        if (matchedPkg.isPresent()) {
+            Package p = matchedPkg.get();
+            logStage("purchased", p.getId());
+            p.setStatus(Package.PROCESSED);
+            toRequestPickup(p.getId());  // ask UPS for pickup
+            toPack(p.getId());           // concurrently ask World to pack
+        } else {
+            // No matching package found, create a new one
+            System.out.println("No matching package found for arrived purchase, creating new package...");
+            
+            // Generate a unique package ID (using sequence number)
+            long pkgId = nextSeq() + 10000; // Add offset to avoid collisions with request sequence numbers
+            
+            // Create a packing instruction
+            APack.Builder packProto = APack.newBuilder()
+                    .setWhnum(buy.getWhnum())
+                    .addAllThings(buy.getThingsList())
+                    .setShipid(pkgId)
+                    .setSeqnum(buy.getSeqnum());
+            
+            // Create and store package
+            packageMap.put(pkgId, new Package(pkgId, buy.getWhnum(), packProto.build()));
+            
+            logStage("purchased", pkgId);
+            packageMap.get(pkgId).setStatus(Package.PROCESSED);
+            toRequestPickup(pkgId);  // ask UPS for pickup
+            toPack(pkgId);           // concurrently ask World to pack
+        }
     }
 
     private void packed(long pkgId) {

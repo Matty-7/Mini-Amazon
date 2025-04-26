@@ -2,6 +2,9 @@ package edu.duke.ece568.erss.amazon;
 
 import edu.duke.ece568.erss.amazon.proto.WorldAmazonProtocol.APack;
 import edu.duke.ece568.erss.amazon.proto.WorldAmazonProtocol.APurchaseMore;
+import edu.duke.ece568.erss.amazon.proto.WorldAmazonProtocol.AProduct;
+
+import java.util.List;
 
 public class Package {
     public static final String PROCESSING = "processing";
@@ -101,7 +104,39 @@ public class Package {
      * @return true if this package matches the arrived purchase
      */
     public boolean matchesArrival(APurchaseMore buy) {
-        return this.id == buy.getSeqnum() && this.whID == buy.getWhnum();
+        // First, check if warehouse ID matches
+        if (this.whID != buy.getWhnum()) {
+            return false;
+        }
+        
+        // Then check if the products match
+        // Get the products from the package's pack
+        List<AProduct> packProducts = pack.getThingsList();
+        List<AProduct> buyProducts = buy.getThingsList();
+        
+        // Simple match: just check if the number of products is the same
+        // You could implement a more sophisticated matching here if needed
+        if (packProducts.size() != buyProducts.size()) {
+            return false;
+        }
+        
+        // Check if all products from the purchase match any product in the pack
+        // This is a simple check - in a real system you might want more exact matching
+        for (AProduct buyProd : buyProducts) {
+            boolean found = false;
+            for (AProduct packProd : packProducts) {
+                // Check if ID matches
+                if (buyProd.getId() == packProd.getId()) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 
     /**
