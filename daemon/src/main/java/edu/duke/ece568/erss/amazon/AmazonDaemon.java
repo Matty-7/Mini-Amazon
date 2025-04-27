@@ -39,7 +39,7 @@ public class AmazonDaemon {
     // ------------------------- runtime state --------------------------
     private InputStream  worldIn;
     private OutputStream worldOut;
-    private long worldId = 4;
+    private long worldId = 7;
 
     // UPS persistent connection fields
     private Socket          upsSocket;
