@@ -32,7 +32,7 @@ def default_users():
 def default_category():
     from amazon.models import Category
     if Category.objects.all().count() == 0:
-        Category.objects.create(category="fruit")
+        Category.objects.create(category="books")
         Category.objects.create(category="food")
         Category.objects.create(category="electronic")
 
@@ -44,17 +44,17 @@ def default_items():
     if Item.objects.all().count() == 0:
         Matty = User.objects.get(username="Matty")
         Alex = User.objects.get(username="Alex")
-        fruit = Category.objects.get(category="fruit")
+        books = Category.objects.get(category="books")
         food = Category.objects.get(category="food")
         electronic = Category.objects.get(category="electronic")
         Item.objects.create(
-            description="apple", price=1.99,
-            img="/static/img/apple.jpg", category=fruit,
+            description="Computer Science: An Interdisciplinary Approach", price=61.59,
+            img="/static/img/CS201.jpg", category=books,
             seller=Alex
         )
         Item.objects.create(
-            description="orange", price=0.99,
-            img="/static/img/orange.jpg", category=fruit,
+            description="Operating Systems Concepts", price=79.49,
+            img="/static/img/os.jpg", category=books,
             seller=Alex
         )
         Item.objects.create(
