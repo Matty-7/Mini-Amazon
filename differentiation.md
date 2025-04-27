@@ -27,7 +27,6 @@ This document outlines the extra features implemented in the Mini Amazon project
 *   **Homepage Search Bar:**
     *   Search across all product categories.
     *   Filter searches by a specific category.
-    *   Search for products listed by a specific seller.
 
 ### 4. Full-Featured Order History Page
 
@@ -44,29 +43,25 @@ This document outlines the extra features implemented in the Mini Amazon project
 *   **Predefined Warehouses:** Includes 10 build-in warehouses as part of the initial dataset.
 *   **Nearest Warehouse Logic:** Automatically allocates the geographically nearest warehouse to each package for efficient delivery processing.
 
-### 7. Email Notification
-
-*   **Purchase Confirmation:** Sends a confirmation email to the user upon successful completion of a purchase.
-
-### 8. Product Categorization
+### 7   . Product Categorization
 
 *   **Multiple Categories:** Products are organized into several categories.
 *   **Homepage Filtering:** Users can easily switch between and view products by category on the home page.
 
-### 9. User Profile Editing
+### 8. User Profile Editing
 
 *   **Dedicated Profile Page:** A separate page allows users to edit their personal information (name, email, password).
 
-### 10. UPS Account Association
+### 9. UPS Account Association
 
 *   **Automatic Linking:** Automatically associates each order with the user's linked UPS account (details of linking mechanism assumed).
 
-### 11. Address Book
+### 10. Address Book
 
 *   **Address Storage:** Allows users to store frequently used shipping addresses.
 *   **Automatic Checkout Fill:** Automatically fills the address field during checkout using stored addresses.
 
-### 12. User-Friendly UI and Interaction
+### 11. User-Friendly UI and Interaction
 
 *   **Error Handling:** Edit forms include error handling and display informative messages upon failure.
 *   **Smooth Interactions (jQuery + Ajax):** Utilizes jQuery and Ajax for smoother user experiences, such as partial page refreshes (e.g., in the shopping cart) to avoid full page reloads. 
