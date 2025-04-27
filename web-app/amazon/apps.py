@@ -33,8 +33,8 @@ def default_category():
     from amazon.models import Category
     if Category.objects.all().count() == 0:
         Category.objects.create(category="books")
-        Category.objects.create(category="food")
-        Category.objects.create(category="electronic")
+        Category.objects.create(category="toys")
+        Category.objects.create(category="electronics")
 
 
 # This function will check whether there are default products, and will create if not.
@@ -45,8 +45,8 @@ def default_items():
         Matty = User.objects.get(username="Matty")
         Alex = User.objects.get(username="Alex")
         books = Category.objects.get(category="books")
-        food = Category.objects.get(category="food")
-        electronic = Category.objects.get(category="electronic")
+        toys = Category.objects.get(category="toys")
+        electronics = Category.objects.get(category="electronics")
         Item.objects.create(
             description="Computer Science: An Interdisciplinary Approach", price=61.59,
             img="/static/img/CS201.jpg", category=books,
@@ -58,28 +58,28 @@ def default_items():
             seller=Alex
         )
         Item.objects.create(
-            description="Fried Chicken", price=5.99,
-            img="/static/img/fried_chicken.jpg", category=food,
+            description="Millennium Falcon", price=849.99,
+            img="/static/img/Millennium-Falcon.png", category=toys,
             seller=Alex
         )
         Item.objects.create(
             description="iPhone 16 Pro", price=999,
-            img="/static/img/iphone.png", category=electronic,
+            img="/static/img/iphone.png", category=electronics,
             seller=Matty
         )
         Item.objects.create(
             description="iPad Pro", price=999,
-            img="/static/img/ipad-pro.png", category=electronic,
+            img="/static/img/ipad-pro.png", category=electronics,
             seller=Matty
         )
         Item.objects.create(
             description="MacBook Pro", price=1599,
-            img="/static/img/macbook-pro.png", category=electronic,
+            img="/static/img/macbook-pro.png", category=electronics,
             seller=Matty
         )
         Item.objects.create(
             description="Apple Watch Ultra 2", price=799,
-            img="/static/img/iwatch.png", category=electronic,
+            img="/static/img/iwatch.png", category=electronics,
             seller=Matty
         )
         
