@@ -11,12 +11,31 @@ from .utils import purchase
 def home(request):
     context = {}
     items = Item.objects.filter(on_sell=True).order_by("id")
+    categories = Category.objects.all()
+    selected_category_id = "All"
+    search_query = ""
+
     if request.method == "POST":
-        search = request.POST["search"]
-        items = items.filter(description__icontains=search)
+        search_query = request.POST.get("search", "")
+        selected_category_id = request.POST.get("category", "All")
+
+        if search_query:
+            items = items.filter(description__icontains=search_query)
+        
+        if selected_category_id != "All":
+            try:
+                # Ensure category_id is treated as an integer for filtering
+                category_id = int(selected_category_id)
+                items = items.filter(category__id=category_id)
+            except (ValueError, TypeError):
+                # Handle cases where category_id might not be a valid integer
+                # Maybe log an error or default to 'All'
+                selected_category_id = "All" 
+
     context["items"] = items
-    context["categories"] = Category.objects.all()
-    context["category"] = "All"
+    context["categories"] = categories
+    context["selected_category_id"] = selected_category_id # Pass the selected category ID
+    context["search_query"] = search_query # Pass the search query
     
     if request.user.is_authenticated:
         context["cart_count"] = Order.objects.filter(owner=request.user, package__isnull=True).count()
