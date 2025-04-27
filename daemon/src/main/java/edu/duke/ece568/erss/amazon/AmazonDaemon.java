@@ -39,7 +39,7 @@ public class AmazonDaemon {
     // ------------------------- runtime state --------------------------
     private InputStream  worldIn;
     private OutputStream worldOut;
-    private long worldId = 1;
+    private long worldId = 4;
 
     // UPS persistent connection fields
     private Socket          upsSocket;
@@ -517,6 +517,10 @@ public class AmazonDaemon {
         logStage("packed", pkgId);
         Package p = packageMap.get(pkgId);
         p.setStatus(Package.PACKED);
+        // If truck has already arrived (i.e., picked() was called before packed()), load now.
+        if (p.getTruckID() > 0) {
+            toLoad(pkgId);
+        }
     }
 
     private void picked(long pkgId, int truckId) {
@@ -556,6 +560,11 @@ public class AmazonDaemon {
     private void delivered(long pkgId) {
         if (!validatePkg(pkgId)) return;
         logStage("delivered", pkgId);
+        // Update status in DB *before* removing from map
+        Package p = packageMap.get(pkgId);
+        if (p != null) {
+            p.setStatus(Package.DELIVERED);
+        }
         packageMap.remove(pkgId);
     }
 
