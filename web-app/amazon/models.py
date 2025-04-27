@@ -18,7 +18,7 @@ class Category(models.Model):
 class Item(models.Model):
     description = models.CharField(max_length=100, blank=False, null=False)
     price = models.FloatField(default=0.99, blank=False, null=False)
-    img = models.CharField(max_length=50, default="/static/img/sample.jpg")
+    img = models.CharField(max_length=50)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
     seller = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     on_sell = models.BooleanField(default=True)

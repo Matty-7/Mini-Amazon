@@ -63,25 +63,27 @@ def default_items():
             seller=Alex
         )
         Item.objects.create(
-            description="iPad Mini", price=399.99,
-            img="/static/img/ipad_mini.jpg", category=electronic,
+            description="iPhone 16 Pro", price=999,
+            img="/static/img/iphone.png", category=electronic,
             seller=Matty
         )
         Item.objects.create(
-            description="iPad", price=429.99,
-            img="/static/img/ipad.jpg", category=electronic,
+            description="iPad Pro", price=999,
+            img="/static/img/ipad-pro.png", category=electronic,
             seller=Matty
         )
         Item.objects.create(
-            description="iPad Pro", price=1099.99,
-            img="/static/img/ipad_pro.jpg", category=electronic,
+            description="MacBook Pro", price=1599,
+            img="/static/img/macbook-pro.png", category=electronic,
             seller=Matty
         )
         Item.objects.create(
-            description="Magic Keyboard", price=129.99,
-            img="/static/img/magic_keyboard.jpg", category=electronic,
+            description="Apple Watch Ultra 2", price=799,
+            img="/static/img/iwatch.png", category=electronic,
             seller=Matty
         )
+        
+        
 
 
 def default_warehouse():
