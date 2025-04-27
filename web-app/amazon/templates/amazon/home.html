@@ -33,11 +33,17 @@
           <div class="row">
             {% for item in items %}
               {% if item.category.category == cat.category %}
-                <div class="col-6 p-2">
-                  <a href="{% url 'item_detail' item.id %}" class="text-decoration-none text-dark d-block">
-                    <img src="{{ item.img }}" class="img-fluid border" style="object-fit: contain; height: 120px; width: 100%;">
-                    <small class="d-block mt-2 text-center">{{ item.description }}</small>
-                  </a>
+                <div class="col-6 p-1">
+                  <div class="product-card h-100">
+                    <a href="{% url 'item_detail' item.id %}" class="text-decoration-none text-dark d-block h-100">
+                      <img src="{{ item.img }}" class="card-img-top" alt="{{ item.description }}" style="object-fit: contain; height: 120px;">
+                      <div class="card-body p-2 d-flex flex-column">
+                        <h6 class="card-title text-truncate mb-1 small">{{ item.description }}</h6>
+                        <p class="card-text text-danger mb-0 small">${{ item.price|floatformat:2 }}</p>
+                        <small class="text-muted mt-auto">Sold by {{ item.seller.username }}</small>
+                      </div>
+                    </a>
+                  </div>
                 </div>
               {% endif %}
             {% endfor %}
@@ -59,7 +65,7 @@
           {% if item.category.category == cat.category %}
             <div class="product-card mr-3">
               <a href="{% url 'item_detail' item.id %}" class="text-decoration-none text-dark">
-                <img src="{{ item.img }}" class="card-img-top" alt="{{ item.description }}">
+                <img src="{{ item.img }}" class="card-img-top" alt="{{ item.description }}" style="object-fit: contain; height: 150px;">
                 <div class="card-body p-2">
                   <h6 class="card-title text-truncate mb-1">{{ item.description }}</h6>
                   <p class="card-text text-danger mb-0">${{ item.price|floatformat:2 }}</p>
