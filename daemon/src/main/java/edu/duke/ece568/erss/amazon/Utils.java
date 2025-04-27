@@ -28,17 +28,28 @@ public final class Utils {
 
     /** Read one length-prefixed protobuf message into the provided **Builder**. */
     public static boolean recvMsgFrom(Message.Builder builder,
-                                      InputStream in) {
+                                      InputStream in) throws IOException {
         try {
             CodedInputStream cis = CodedInputStream.newInstance(in);
-            int len      = cis.readRawVarint32();
+            int len = cis.readRawVarint32();
+            if (len <= 0) {
+                System.err.println("Warning: received message with length " + len);
+                return false;
+            }
+            
+            // Increase the size limit for large messages
+            cis.setSizeLimit(Integer.MAX_VALUE);
+            
             int oldLimit = cis.pushLimit(len);
             builder.mergeFrom(cis);
             cis.popLimit(oldLimit);
             return true;
         } catch (IOException e) {
-            System.err.println("recvMsgFrom: " + e);
-            return false;
+            System.err.println("Error reading message: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            System.err.println("Unexpected error in recvMsgFrom: " + e);
+            throw new IOException("Failed to read message: " + e.getMessage(), e);
         }
     }
 

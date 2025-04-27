@@ -8,6 +8,9 @@ import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
 
+import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.CodedInputStream;
+
 import static edu.duke.ece568.erss.amazon.Utils.recvMsgFrom;
 import static edu.duke.ece568.erss.amazon.Utils.sendMsgTo;
 
@@ -22,13 +25,15 @@ import static edu.duke.ece568.erss.amazon.Utils.sendMsgTo;
 public class AmazonDaemon {
 
     // ---------------------- connection constants -----------------------
-    private static final String WORLD_HOST = "ece650-vm.colab.duke.edu";
+    private static final String WORLD_HOST = 
+        System.getenv().getOrDefault("WORLD_HOST", "localhost");
     private static final int    WORLD_PORT = 23456;
 
-    private static final String UPS_HOST   = "localhost";
-    private static final int    UPS_PORT   = 34567;
+    private static final String UPS_HOST = 
+        System.getenv().getOrDefault("UPS_HOST", "localhost");
+    private static final int UPS_PORT = 
+        Integer.parseInt(System.getenv().getOrDefault("UPS_PORT", "34567"));
 
-    public static final int  UPS_SERVER_PORT = 34567;    // Flask / real-UPS callback port
     private static final int TIME_OUT_MS     = 3_000;   // resend window (ms) for un-acked msgs
 
     // ------------------------- runtime state --------------------------
@@ -36,9 +41,13 @@ public class AmazonDaemon {
     private OutputStream worldOut;
     private long worldId = 4;
 
+    // UPS persistent connection fields
+    private Socket          upsSocket;
+    private InputStream     upsIn;
+    private OutputStream    upsOut;
+
     private long seqNum = 0;                // global monotonically-increasing seq-num
 
-    private Server               upsServer; // local HTTP server that UPS POSTs to
     private DaemonThread         daemonThread;
 
     private final Map<Long, Package> packageMap = new ConcurrentHashMap<>();
@@ -46,15 +55,8 @@ public class AmazonDaemon {
     private final ThreadPoolExecutor threadPool;
     private final List<AInitWarehouse> warehouses;
 
-    // optional in-process stub for integration tests
-    private final boolean isMockingUPS = false;
-    private MockUPS ups;
-
     // ---------------------------- ctor -------------------------------
     public AmazonDaemon() throws IOException {
-        if (isMockingUPS) {
-            ups = new MockUPS();
-        }
         BlockingQueue<Runnable> q = new LinkedBlockingQueue<>(30);
         threadPool = new ThreadPoolExecutor(50, 80, 5, TimeUnit.SECONDS, q);
         warehouses = new SQL().queryWHs();
@@ -63,86 +65,222 @@ public class AmazonDaemon {
     // -------------------------- bootstrap ----------------------------
     /**
      * Initialise the daemon:
-     *  - (optional) start Mock-UPS.
-     *  - spin up the local callback server so the real UPS can reach us at any time.
      *  - connect to the World simulator (passing worldId = -1 so the simulator allocates one).
+     *  - connect to UPS (persistent connection)
      */
     public void config() throws IOException {
-        if (isMockingUPS) ups.init();
-
         System.out.println("Daemon is starting...");
 
-        // 1) UPS callback listener first - UPS may ping us immediately after launch.
-        upsServer = new Server(UPS_SERVER_PORT);
-        System.out.println("Listening for UPS callbacks on port " + UPS_SERVER_PORT);
-
-        // 2) Connect to World - let it choose / allocate the world-id for this session.
+        // Connect to World - let it choose / allocate the world-id for this session.
         if (!connectToWorld(worldId)) {
             throw new IOException("Failed to connect to World simulator");
         }
+        
+        // Connect to UPS with persistent connection
+        connectToUPS();
+        
+        // Start UPS receiver thread
+        startUPSReceiver();
+    }
+
+    /** Establishes a persistent connection with UPS that will be maintained throughout the lifetime of the daemon */
+    private void connectToUPS() throws IOException {
+        upsSocket = new Socket(UPS_HOST, UPS_PORT);
+        upsIn = upsSocket.getInputStream();
+        upsOut = upsSocket.getOutputStream();
+        System.out.printf("Connected to UPS at %s:%d%n", UPS_HOST, UPS_PORT);
+    }
+
+    /** Starts a dedicated thread that continuously listens for messages from UPS */
+    private void startUPSReceiver() {
+        new Thread(() -> {
+            try {
+                while (true) {
+                    // Use parseDelimitedFrom to read framed messages
+                    UPSToAmazon msg = UPSToAmazon.parseDelimitedFrom(upsIn);
+                    if (msg == null) {
+                        // Stream EOF or connection closed
+                        System.err.println("UPS connection closed!");
+                        break;
+                    }
+                    System.out.println("<- UPS: " + msg);
+                    
+                    // Cancel resend timers for acked messages
+                    for (long ackSeq : msg.getAcksList()) {
+                        Timer t = requestMap.remove(ackSeq);
+                        if (t != null) t.cancel();
+                    }
+                    
+                    // Process incoming messages
+                    for (PickupResp pickup : msg.getPickupRespList()) {
+                        setTruckIdOnly(pickup.getOrderId(), pickup.getTruckId());
+                    }
+                    for (TruckArrived truckArrival : msg.getTruckArrivedList()) 
+                        picked(truckArrival.getPackageId(), truckArrival.getTruckId());
+                    for (DeliveryComplete delivery : msg.getDeliveryCompleteList()) 
+                        delivered(delivery.getPackageId());
+                    
+                    // Send acknowledgments back to UPS
+                    ackUPS(msg);
+                }
+            } catch (IOException e) {
+                System.err.println("Error in UPS receiver thread: " + e);
+                // Try to reconnect if the connection fails
+                try {
+                    System.out.println("Attempting to reconnect to UPS...");
+                    connectToUPS();
+                    startUPSReceiver();
+                } catch (IOException reconnectError) {
+                    System.err.println("Failed to reconnect to UPS: " + reconnectError);
+                }
+            }
+        }, "UPS-Receiver").start();
+    }
+
+    private void setTruckIdOnly(long pkgId, int truckId) {
+        if (!validatePkg(pkgId)) return;
+        Package p = packageMap.get(pkgId);
+        p.setTruckID(truckId);
+        System.out.printf("Set truck_id=%d for pkg=%d based on PickupResp%n", truckId, pkgId);
     }
 
     private boolean connectToWorld(long worldID) throws IOException {
-        Socket socket = new Socket(WORLD_HOST, WORLD_PORT);
-        worldIn  = socket.getInputStream();
-        worldOut = socket.getOutputStream();
-
-        // First try with warehouses
-        AConnect.Builder connect = AConnect.newBuilder()
-                .setIsAmazon(true)
-                .addAllInitwh(warehouses);
-        if (worldID >= 0) connect.setWorldid(worldID);
-
-        sendMsgTo(connect.build(), worldOut);
-
-        AConnected.Builder connected = AConnected.newBuilder();
-        recvMsgFrom(connected, worldIn);
-
-        String result = connected.getResult();
-        System.out.printf("World handshake -> id=%d  result=%s%n",
-                          connected.getWorldid(), result);
-        
-        // If we get an error about warehouses already existing, try connecting without warehouses
-        if (result != null && result.contains("warehouse_id") && result.contains("already exists")) {
-            System.out.println("Warehouses already exist, reconnecting without creating warehouses...");
-            
-            // Close existing connection and open a new one
-            socket.close();
+        Socket socket = null;
+        try {
             socket = new Socket(WORLD_HOST, WORLD_PORT);
-            worldIn  = socket.getInputStream();
+            worldIn = socket.getInputStream();
             worldOut = socket.getOutputStream();
-            
-            // Connect without warehouses
-            connect = AConnect.newBuilder()
-                    .setIsAmazon(true);
+
+            // First try with warehouses
+            AConnect.Builder connect = AConnect.newBuilder()
+                    .setIsAmazon(true)
+                    .addAllInitwh(warehouses);
             if (worldID >= 0) connect.setWorldid(worldID);
+
+            if (!sendMsgTo(connect.build(), worldOut)) {
+                throw new IOException("Failed to send Connect message to World");
+            }
+
+            AConnected.Builder connected = AConnected.newBuilder();
+            if (!recvMsgFrom(connected, worldIn)) {
+                throw new IOException("Failed to receive Connected response from World");
+            }
+
+            String result = connected.getResult();
+            System.out.printf("World handshake -> id=%d  result=%s%n",
+                    connected.getWorldid(), result);
             
-            sendMsgTo(connect.build(), worldOut);
+            // If we get an error about warehouses already existing, try connecting without warehouses
+            if (result != null && result.contains("warehouse_id") && result.contains("already exists")) {
+                System.out.println("Warehouses already exist, reconnecting without creating warehouses...");
+                
+                // Close existing connection and open a new one
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    System.err.println("Error closing socket: " + e);
+                }
+                
+                socket = new Socket(WORLD_HOST, WORLD_PORT);
+                worldIn = socket.getInputStream();
+                worldOut = socket.getOutputStream();
+                
+                // Connect without warehouses
+                connect = AConnect.newBuilder()
+                        .setIsAmazon(true);
+                if (worldID >= 0) connect.setWorldid(worldID);
+                
+                if (!sendMsgTo(connect.build(), worldOut)) {
+                    throw new IOException("Failed to send Connect message to World (retry)");
+                }
+                
+                connected = AConnected.newBuilder();
+                if (!recvMsgFrom(connected, worldIn)) {
+                    throw new IOException("Failed to receive Connected response from World (retry)");
+                }
+                
+                result = connected.getResult();
+                System.out.printf("World handshake (retry) -> id=%d  result=%s%n",
+                        connected.getWorldid(), result);
+            }
             
-            connected = AConnected.newBuilder();
-            recvMsgFrom(connected, worldIn);
-            
-            result = connected.getResult();
-            System.out.printf("World handshake (retry) -> id=%d  result=%s%n",
-                              connected.getWorldid(), result);
+            return "connected!".equals(result);
+        } catch (IOException e) {
+            System.err.println("Error connecting to World: " + e);
+            if (socket != null) {
+                try {
+                    socket.close();
+                } catch (IOException closeError) {
+                    System.err.println("Error closing socket: " + closeError);
+                }
+            }
+            throw e;
         }
-        
-        return "connected!".equals(result);
     }
 
     // ----------------------- main threads ---------------------------
     public void runAll() {
         threadPool.prestartAllCoreThreads();
-
         runDaemonServer();
-        runUPSServer();
 
         // dedicated reader for async World events
         new Thread(() -> {
             while (true) {
-                AResponses.Builder resp = AResponses.newBuilder();
-                recvMsgFrom(resp, worldIn);
-                handleWorldResponse(resp.build());
+                try {
+                    AResponses.Builder resp = AResponses.newBuilder();
+                    if (recvMsgFrom(resp, worldIn)) {
+                        AResponses builtResp = resp.build();
+                        // Print detailed contents of message for debugging
+                        System.out.println("<- World FULL RESPONSE: " + builtResp);
+                        
+                        // Process the message even if it only contains acks
+                        if (builtResp.getAcksCount() > 0) {
+                            System.out.println("<- World received ACKs: " + builtResp.getAcksList());
+                        }
+                        
+                        // Check if we have actual content (not just ACKs)
+                        boolean hasContent = builtResp.getArrivedCount() > 0 ||
+                                            builtResp.getReadyCount() > 0 ||
+                                            builtResp.getLoadedCount() > 0 ||
+                                            builtResp.getErrorCount() > 0 || 
+                                            builtResp.getPackagestatusCount() > 0;
+                        
+                        if (hasContent) {
+                            System.out.println("<- World CONTENT RESPONSE received with " + 
+                                builtResp.getArrivedCount() + " arrivals, " + 
+                                builtResp.getReadyCount() + " ready, " + 
+                                builtResp.getLoadedCount() + " loaded");
+                            handleWorldResponse(builtResp);
+                        }
+                    } else {
+                        System.err.println("Failed to receive message from World, will retry...");
+                        Thread.sleep(1000); // Small delay before retry
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error in World receiver thread: " + e);
+                    try {
+                        System.out.println("Attempting to reconnect to World...");
+                        if (connectToWorld(worldId)) {
+                            System.out.println("Successfully reconnected to World");
+                        } else {
+                            System.err.println("Failed to reconnect to World");
+                            // Wait before retrying to avoid rapid reconnection attempts
+                            Thread.sleep(5000);
+                        }
+                    } catch (IOException | InterruptedException reconnectError) {
+                        System.err.println("Failed to reconnect to World: " + reconnectError);
+                        try {
+                            // Wait before retrying to avoid rapid reconnection attempts
+                            Thread.sleep(5000);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                } catch (InterruptedException ie) {
+                    System.err.println("World receiver thread interrupted: " + ie);
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         }, "World-recv-thread").start();
     }
@@ -155,39 +293,88 @@ public class AmazonDaemon {
         daemonThread.start();
     }
 
-    private void runUPSServer() {
-        new Thread(() -> {
-            while (true) {
-                Socket s = upsServer.accept();
-                if (s == null) continue;
-                threadPool.execute(() -> {
-                    try (InputStream is = s.getInputStream(); OutputStream os = s.getOutputStream()) {
-                        handleUPSResponse(is, os);
-                    } catch (Exception e) {
-                        System.err.println("UPS-handler: " + e);
-                    }
-                });
-            }
-        }, "UPS-callback-server").start();
-    }
-
     // -------------------  World  -> Amazon  -----------------------
     private void handleWorldResponse(AResponses resp) {
+        if (resp == null) {
+            System.err.println("Warning: Received null response from World");
+            return;
+        }
+        
         System.out.println("<- World: " + resp);
+        
+        // First acknowledge receipt of this message
         sendAckToWorld(resp);
+        
+        // Process each type of message
+        boolean hasProcessed = false;
+        
+        if (resp.getArrivedCount() > 0) {
+            System.out.println("Processing " + resp.getArrivedCount() + " arrived purchase(s)");
+            for (APurchaseMore p : resp.getArrivedList()) {
+                purchased(p);
+                hasProcessed = true;
+            }
+        }
+        
+        if (resp.getReadyCount() > 0) {
+            System.out.println("Processing " + resp.getReadyCount() + " ready package(s)");
+            for (APacked p : resp.getReadyList()) {
+                packed(p.getShipid());
+                hasProcessed = true;
+            }
+        }
+        
+        if (resp.getLoadedCount() > 0) {
+            System.out.println("Processing " + resp.getLoadedCount() + " loaded package(s)");
+            for (ALoaded l : resp.getLoadedList()) {
+                loaded(l.getShipid());
+                hasProcessed = true;
+            }
+        }
+        
+        if (resp.getErrorCount() > 0) {
+            for (AErr e : resp.getErrorList()) {
+                System.err.println("World-err: " + e.getErr() + " (origin seq: " + e.getOriginseqnum() + ")");
+                // Cancel the resend timer for the original message
+                Timer t = requestMap.remove(e.getOriginseqnum());
+                if (t != null) t.cancel();
+                hasProcessed = true;
+            }
+        }
 
-        for (APurchaseMore p : resp.getArrivedList())  purchased(p);
-        for (APacked       p : resp.getReadyList())   packed(p.getShipid());
-        for (ALoaded       l : resp.getLoadedList())  loaded(l.getShipid());
-        for (AErr          e : resp.getErrorList())   System.err.println("World-err: " + e.getErr());
-
-        for (APackage st : resp.getPackagestatusList()) {
-            Package pkg = packageMap.get(st.getPackageid());
-            if (pkg != null) pkg.setStatus(st.getStatus());
+        if (resp.getPackagestatusCount() > 0) {
+            System.out.println("Processing " + resp.getPackagestatusCount() + " package status updates");
+            for (APackage st : resp.getPackagestatusList()) {
+                Package pkg = packageMap.get(st.getPackageid());
+                if (pkg != null) {
+                    pkg.setStatus(st.getStatus());
+                    System.out.println("Updated package " + st.getPackageid() + " status to: " + st.getStatus());
+                } else {
+                    System.err.println("Warning: Status update for unknown package " + st.getPackageid());
+                }
+                hasProcessed = true;
+            }
+        }
+        
+        // Additional processing for acknowledgements
+        if (resp.getAcksCount() > 0) {
+            for (long ackSeq : resp.getAcksList()) {
+                Timer t = requestMap.remove(ackSeq);
+                if (t != null) {
+                    t.cancel();
+                    System.out.println("Cancelled resend timer for seq " + ackSeq);
+                }
+            }
+        }
+        
+        if (!hasProcessed && resp.getAcksCount() == 0) {
+            System.out.println("Received empty response from World (no content, no acks)");
         }
     }
 
     private void sendAckToWorld(AResponses resp) {
+        if (resp == null) return;
+        
         List<Long> seqs = new ArrayList<>();
         resp.getArrivedList()      .forEach(v -> seqs.add(v.getSeqnum()));
         resp.getReadyList()        .forEach(v -> seqs.add(v.getSeqnum()));
@@ -197,34 +384,17 @@ public class AmazonDaemon {
         if (seqs.isEmpty()) return;
 
         ACommands.Builder ack = ACommands.newBuilder().addAllAcks(seqs);
-        synchronized (worldOut) { sendMsgTo(ack.build(), worldOut); }
-    }
-
-    // --------------------  UPS  -> Amazon  ------------------------
-    private void handleUPSResponse(InputStream is, OutputStream os) {
-        UPSToAmazon.Builder upsMsg = UPSToAmazon.newBuilder();
-        recvMsgFrom(upsMsg, is);
-        UPSToAmazon msg = upsMsg.build();
-        System.out.println("<- UPS: " + msg);
-
-        ackUPS(msg, os);
-
-        for (TruckArrived      t : msg.getTruckArrivedList())   picked   (t.getPackageId(), t.getTruckId());
-        for (DeliveryComplete  d : msg.getDeliveryCompleteList()) delivered(d.getPackageId());
-    }
-
-    private void ackUPS(UPSToAmazon msg, OutputStream os) {
-        List<Long> seqs = new ArrayList<>();
-        msg.getPickupRespList()     .forEach(v -> seqs.add(v.getSeqnum()));
-        msg.getRedirectRespList()   .forEach(v -> seqs.add(v.getSeqnum()));
-        msg.getCancelRespList()     .forEach(v -> seqs.add(v.getSeqnum()));
-        msg.getTruckArrivedList()   .forEach(v -> seqs.add(v.getSeqnum()));
-        msg.getDeliveryStartedList().forEach(v -> seqs.add(v.getSeqnum()));
-        msg.getDeliveryCompleteList().forEach(v -> seqs.add(v.getSeqnum()));
-        if (seqs.isEmpty()) return;
-
-        AmazonToUPS.Builder ack = AmazonToUPS.newBuilder().addAllAcks(seqs);
-        sendMsgTo(ack.build(), os);
+        ACommands builtAck = ack.build();
+        System.out.println("-> World (ACK): " + builtAck);
+        synchronized (worldOut) {
+            try {
+                if (!sendMsgTo(builtAck, worldOut)) {
+                    System.err.println("Failed to send ACK to World");
+                }
+            } catch (Exception e) {
+                System.err.println("Exception when sending ACK to World: " + e);
+            }
+        }
     }
 
     // ----------------------- internal ops -------------------------
@@ -347,7 +517,10 @@ public class AmazonDaemon {
         logStage("packed", pkgId);
         Package p = packageMap.get(pkgId);
         p.setStatus(Package.PACKED);
-        if (p.getTruckID() != -1) toLoad(pkgId); // truck already here
+        // If truck has already arrived (i.e., picked() was called before packed()), load now.
+        if (p.getTruckID() > 0) {
+            toLoad(pkgId);
+        }
     }
 
     private void picked(long pkgId, int truckId) {
@@ -387,35 +560,75 @@ public class AmazonDaemon {
     private void delivered(long pkgId) {
         if (!validatePkg(pkgId)) return;
         logStage("delivered", pkgId);
+        // Update status in DB *before* removing from map
+        Package p = packageMap.get(pkgId);
+        if (p != null) {
+            p.setStatus(Package.DELIVERED);
+        }
         packageMap.remove(pkgId);
     }
 
     // -------------------- comm helpers -------------------------
     private void sendToWorld(ACommands.Builder cmd, long seq) {
         cmd.setSimspeed(500); // DEBUG: speed-up sim
-        Timer t = scheduleResend(() -> sendMsgTo(cmd.build(), worldOut));
+        ACommands builtCmd = cmd.build();
+        System.out.println("-> World: " + builtCmd);
+        Timer t = scheduleResend(() -> {
+            synchronized (worldOut) {
+                sendMsgTo(builtCmd, worldOut);
+            }
+        });
         requestMap.put(seq, t);
     }
 
+    /** Send a message to UPS over the persistent connection */
     private void sendToUPS(AmazonToUPS cmd, long seq) {
         try {
-            Socket s = new Socket(UPS_HOST, UPS_PORT);
-            InputStream  is = s.getInputStream();
-            OutputStream os = s.getOutputStream();
+            byte[] bytes = cmd.toByteArray();  // serialize once
+            CodedOutputStream cos = CodedOutputStream.newInstance(upsOut);
+            cos.writeUInt32NoTag(bytes.length);
+            cos.writeRawBytes(bytes);
+            cos.flush();
 
-            Timer t = scheduleResend(() -> sendMsgTo(cmd, os));
-            requestMap.put(seq, t);
+            System.out.println("-> UPS: " + cmd);
 
-            while (true) {
-                UPSToAmazon.Builder resp = UPSToAmazon.newBuilder();
-                recvMsgFrom(resp, is);
-                if (resp.getAcksList().contains(seq)) {
-                    t.cancel();
-                    break;
+            // Schedule resend with exact same bytes
+            Timer t = scheduleResend(() -> {
+                try {
+                    CodedOutputStream resendCos = CodedOutputStream.newInstance(upsOut);
+                    resendCos.writeUInt32NoTag(bytes.length);
+                    resendCos.writeRawBytes(bytes);
+                    resendCos.flush();
+                    System.out.println("🔁 UPS resend: " + cmd);
+                } catch (IOException e) {
+                    System.err.println("UPS resend failed: " + e);
                 }
-            }
-        } catch (Exception e) {
-            System.err.println("sendToUPS: " + e);
+            });
+            requestMap.put(seq, t);  // Only add to requestMap after successful write
+
+        } catch (IOException e) {
+            System.err.println("sendToUPS error: " + e);
+        }
+    }
+
+    /** Send acknowledgments to UPS for received messages */
+    private void ackUPS(UPSToAmazon msg) {
+        List<Long> seqs = new ArrayList<>();
+        msg.getPickupRespList()     .forEach(v -> seqs.add(v.getSeqnum()));
+        msg.getRedirectRespList()   .forEach(v -> seqs.add(v.getSeqnum()));
+        msg.getCancelRespList()     .forEach(v -> seqs.add(v.getSeqnum()));
+        msg.getTruckArrivedList()   .forEach(v -> seqs.add(v.getSeqnum()));
+        msg.getDeliveryStartedList().forEach(v -> seqs.add(v.getSeqnum()));
+        msg.getDeliveryCompleteList().forEach(v -> seqs.add(v.getSeqnum()));
+        if (seqs.isEmpty()) return;
+
+        AmazonToUPS ack = AmazonToUPS.newBuilder().addAllAcks(seqs).build();
+        try {
+            ack.writeDelimitedTo(upsOut);
+            upsOut.flush();
+            System.out.println("-> UPS (ACK): " + ack);
+        } catch (IOException e) {
+            System.err.println("ackUPS error: " + e);
         }
     }
 
