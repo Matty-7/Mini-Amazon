@@ -80,25 +80,12 @@ git clone git@gitlab.oit.duke.edu:jh730/erss-project-jh730-xs90.git
 # 2. Build and start all services (Web, Daemon, DB, Nginx)
 # This command builds the Docker images and starts the containers.
 # The Java daemon is compiled within its Docker build process.
-docker-compose up --build -d # Use -d to run in detached mode
-
-# 3. Set up the Django database
-# Enter the running web container
-docker exec -it web-app bash # 'web-app' should match the service name in docker-compose.yml
-
-# Inside the container, apply database migrations
-python manage.py migrate
-
-# Exit the container
-exit
-
-# 4. Access the web application
-# Open your browser and navigate to http://localhost:80 (or the port mapped by Nginx)
+docker compose up --build -d # Use -d to run in detached mode
 ```
 
 ### Stopping the System
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ---
@@ -132,12 +119,9 @@ Communication between the Daemon, World Simulator, and UPS system uses `Protocol
 
 ---
 
-## 🚨 Known Issues
-See `dangerlog.md` for unresolved bugs, potential race conditions, and edge case handling failures.
-
----
-
 ## 📄 Documentation
+
+- `dangerlog.md` includes potential race conditions, and edge case handling failures.
 - Protocol Buffer Definitions: See files in the `protobuf/` directory.
 - Project Design Notes: `differentiation.md` (Discusses design choices and system architecture).
 
