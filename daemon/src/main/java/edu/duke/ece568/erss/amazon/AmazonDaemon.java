@@ -39,7 +39,7 @@ public class AmazonDaemon {
     // ------------------------- runtime state --------------------------
     private InputStream  worldIn;
     private OutputStream worldOut;
-    private long worldId = 1;
+    private long worldId = 2;
 
     // UPS persistent connection fields
     private Socket          upsSocket;
@@ -52,6 +52,7 @@ public class AmazonDaemon {
 
     private final Map<Long, Package> packageMap = new ConcurrentHashMap<>();
     private final Map<Long, Timer>   requestMap = new ConcurrentHashMap<>();
+    private final Map<Long, Long>    upsToInternalPkgIdMap = new ConcurrentHashMap<>(); // Map UPS package_id -> internal pkgId
     private final ThreadPoolExecutor threadPool;
     private final List<AInitWarehouse> warehouses;
 
@@ -114,11 +115,43 @@ public class AmazonDaemon {
                     // Process incoming messages
                     for (PickupResp pickup : msg.getPickupRespList()) {
                         setTruckIdOnly(pickup.getOrderId(), pickup.getTruckId());
+                        // Store the mapping from UPS package_id to our order_id (pkgId)
+                        upsToInternalPkgIdMap.put(pickup.getPackageId(), pickup.getOrderId()); 
+                        System.out.printf("Mapped UPS pkg_id=%d to internal pkg_id=%d%n", 
+                                          pickup.getPackageId(), pickup.getOrderId());
+                        
+                        // Store the UPS package ID in the Package object itself
+                        long internalPkgIdForUpsId = pickup.getOrderId();
+                        if (packageMap.containsKey(internalPkgIdForUpsId)) {
+                            Package p = packageMap.get(internalPkgIdForUpsId);
+                            p.setUpsPackageId(pickup.getPackageId());
+                            System.out.printf("Stored UPS pkg_id=%d in Package object for internal pkg_id=%d%n", 
+                                              pickup.getPackageId(), internalPkgIdForUpsId);
+                        } else {
+                            System.err.printf("Error: Could not find Package object for internal pkg_id=%d to store UPS pkg_id=%d%n", 
+                                              internalPkgIdForUpsId, pickup.getPackageId());
+                        }
                     }
-                    for (TruckArrived truckArrival : msg.getTruckArrivedList()) 
-                        picked(truckArrival.getPackageId(), truckArrival.getTruckId());
-                    for (DeliveryComplete delivery : msg.getDeliveryCompleteList()) 
-                        delivered(delivery.getPackageId());
+                    for (TruckArrived truckArrival : msg.getTruckArrivedList()) {
+                        Long internalPkgId = upsToInternalPkgIdMap.get(truckArrival.getPackageId());
+                        if (internalPkgId != null) {
+                            picked(internalPkgId, truckArrival.getTruckId());
+                        } else {
+                            System.err.printf("Error: Received TruckArrived for unknown UPS pkg_id=%d%n", 
+                                              truckArrival.getPackageId());
+                        }
+                    } 
+                    for (DeliveryComplete delivery : msg.getDeliveryCompleteList()) { 
+                        Long internalPkgId = upsToInternalPkgIdMap.get(delivery.getPackageId());
+                        if (internalPkgId != null) {
+                            delivered(internalPkgId);
+                            // Clean up the map entry once delivered
+                            upsToInternalPkgIdMap.remove(delivery.getPackageId());
+                        } else {
+                            System.err.printf("Error: Received DeliveryComplete for unknown UPS pkg_id=%d%n", 
+                                              delivery.getPackageId());
+                        }
+                    }
                     
                     // Send acknowledgments back to UPS
                     ackUPS(msg);
@@ -460,11 +493,22 @@ public class AmazonDaemon {
     private void toLoadReady(long pkgId) {
         if (!validatePkg(pkgId)) return;
         logStage("load_ready", pkgId);
+        Package p = packageMap.get(pkgId);
+        if (p == null) { // Extra safety check
+            System.err.println("Error: Package object not found for pkgId " + pkgId + " in toLoadReady");
+            return;
+        }
+        long upsPackageId = p.getUpsPackageId();
+        if (upsPackageId == 0) { // Check if UPS ID was set (0 is likely default/unset)
+             System.err.println("Error: UPS package ID not set for internal pkgId " + pkgId + " in toLoadReady. Cannot send LoadReady.");
+             return;
+        }
+
         threadPool.execute(() -> {
             long seq = nextSeq();
             LoadReady ready = LoadReady.newBuilder()
                     .setSeqnum(seq)
-                    .setPackageId(pkgId)
+                    .setPackageId(upsPackageId) // Use the retrieved UPS package ID
                     .build();
             AmazonToUPS.Builder cmd = AmazonToUPS.newBuilder().addLoadReady(ready);
             sendToUPS(cmd.build(), seq);
@@ -517,8 +561,7 @@ public class AmazonDaemon {
         logStage("packed", pkgId);
         Package p = packageMap.get(pkgId);
         p.setStatus(Package.PACKED);
-        // If truck has already arrived (i.e., picked() was called before packed()), load now.
-        if (p.getTruckID() > 0) {
+        if (p.getTruckArrived()) {
             toLoad(pkgId);
         }
     }
@@ -528,7 +571,10 @@ public class AmazonDaemon {
         logStage("truck_arrived", pkgId);
         Package p = packageMap.get(pkgId);
         p.setTruckID(truckId);
-        if (p.getStatus().equals(Package.PACKED)) toLoad(pkgId);
+        p.setTruckArrived(true);
+        if (p.getStatus().equals(Package.PACKED) && p.getTruckArrived()) {
+            toLoad(pkgId);
+        }
     }
 
     private void toLoad(long pkgId) {

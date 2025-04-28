@@ -17,6 +17,7 @@ public class Package {
     public static final String DELIVERED = "delivered";
     public static final String ERROR = "error";
 
+
     private long id;
     private int whID;
     private int truckID;
@@ -24,14 +25,25 @@ public class Package {
     private String status;
     private APack pack;
     private String upsName;
+    private boolean truckArrived;
+    private long upsPackageId;
 
     public Package(long id, int whID, APack pack) {
         this.id = id;
         this.whID = whID;
         this.pack = pack;
         this.truckID = -1;
+        this.truckArrived = false;
         this.destination = new SQL().queryPackageDest(id);
         this.upsName = new SQL().queryUPSName(id);
+    }
+
+    public boolean getTruckArrived() {
+        return truckArrived;
+    }
+
+    public void setTruckArrived(boolean truckArrived) {
+        this.truckArrived = truckArrived;
     }
 
     public long getId() {
@@ -147,5 +159,13 @@ public class Package {
         this.status = status;
         // write the result into DB
         new SQL().updateStatus(this.id, this.status);
+    }
+
+    public long getUpsPackageId() {
+        return upsPackageId;
+    }
+
+    public void setUpsPackageId(long upsPackageId) {
+        this.upsPackageId = upsPackageId;
     }
 }
